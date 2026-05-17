@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VK Joyas | Joyería Fina en Plata 925</title>
+    <meta name="description" content="Joyería artesanal de plata ley 925. Anillos, aretes, dijes y manillas exclusivas hechas a mano.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="logo">VK JOYAS</div>
+        <button class="hamburger" id="hamburger">☰</button>
+        <ul class="nav-links" id="nav-links">
+            <li><a href="#" class="active" data-filter="all">Inicio</a></li>
+            <li><a href="#" data-filter="aretes">Aretes</a></li>
+            <li><a href="#" data-filter="anillos">Anillos</a></li>
+            <li><a href="#" data-filter="dijes">Dijes</a></li>
+            <li><a href="#" data-filter="manillas">Manillas</a></li>
+            <li><a href="#" data-filter="otros">Otros</a></li>
+        </ul>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero" id="hero">
+        <div class="hero-content">
+            <h1>Elegancia en Plata 925</h1>
+            <p>Joyas hechas a mano diseñadas para resaltar tu belleza natural con diseños únicos y exclusivos.</p>
+            <a href="#catalogo" class="btn-primary">Ver Colección</a>
+        </div>
+    </section>
+
+    <!-- Category Highlights (Shown only on 'all' view) -->
+    <div id="home-categories">
+        <h2 class="section-title">Nuestras Categorías</h2>
+        <div class="categories-grid">
+            <div class="category-card" data-category="aretes">
+                <img src="img/aretes_1.png" alt="Aretes de Plata">
+                <h3 class="category-title">Aretes</h3>
+            </div>
+            <div class="category-card" data-category="anillos">
+                <img src="img/anillos_1.png" alt="Anillos de Plata">
+                <h3 class="category-title">Anillos</h3>
+            </div>
+            <div class="category-card" data-category="dijes">
+                <img src="img/dijes_1.png" alt="Dijes de Plata">
+                <h3 class="category-title">Dijes</h3>
+            </div>
+            <div class="category-card" data-category="manillas">
+                <img src="img/manillas_1.png" alt="Manillas de Plata">
+                <h3 class="category-title">Manillas</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Products Catalog -->
+    <section class="products-container" id="catalogo">
+        <h2 class="section-title" id="catalogo-title">Colección Completa</h2>
+        
+        <div class="filter-buttons" id="filter-buttons" style="display: none;">
+            <button class="filter-btn active" data-filter="all">Todos</button>
+            <button class="filter-btn" data-filter="aretes">Aretes</button>
+            <button class="filter-btn" data-filter="anillos">Anillos</button>
+            <button class="filter-btn" data-filter="dijes">Dijes</button>
+            <button class="filter-btn" data-filter="manillas">Manillas</button>
+            <button class="filter-btn" data-filter="otros">Otros</button>
+        </div>
+
+        <div class="products-grid" id="products-grid">
+            <!-- Products will be dynamically injected here by app.js -->
+        </div>
+    </section>
+
+    <!-- Lightbox Modal -->
+    <div class="modal" id="lightbox">
+        <div class="modal-content">
+            <button class="modal-close" id="modal-close">&times;</button>
+            <img id="lightbox-img" src="" alt="Joyeria">
+            <div class="modal-caption" id="lightbox-caption"></div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2024 VK Joyas. Todos los derechos reservados. Diseño en Plata Ley 925.</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="js/data.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
