@@ -51,7 +51,20 @@ export default function Catalog({ products }: { products: any[] }) {
   return (
     <>
       <nav className="navbar">
-        <div className="logo">VK JOYAS</div>
+        <div className="logo-container" onClick={() => handleCategorySelect('all')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+          {/* Asumiendo que el usuario guardará la imagen como public/logo.png o logo.jpg */}
+          <Image 
+            src="/logo.jpeg" 
+            alt="VK Joyas" 
+            width={45} 
+            height={45} 
+            style={{ 
+              filter: 'invert(1) brightness(2)', /* Esto invierte los colores para que se vea blanco sobre fondo negro */
+              mixBlendMode: 'screen'
+            }} 
+            unoptimized 
+          />
+        </div>
         <button 
           className="hamburger" 
           onClick={() => setIsMenuOpen(!isMenuOpen)}
