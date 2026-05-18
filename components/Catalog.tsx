@@ -35,6 +35,8 @@ export default function Catalog({ products }: { products: any[] }) {
     setIsMenuOpen(false);
     if (category !== 'all') {
       document.getElementById('catalogo')?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -166,7 +168,7 @@ export default function Catalog({ products }: { products: any[] }) {
       </div>
 
       <footer>
-        <p>&copy; {new Date().getFullYear()} VK Joyas. Todos los derechos reservados. Diseño en Plata Ley 925.</p>
+        <p>&copy; {new Date().getFullYear()} VK Joyas. Todos los derechos reservados. Diseño en Plata 925.</p>
       </footer>
     </>
   );
