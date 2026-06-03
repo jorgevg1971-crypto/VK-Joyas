@@ -3,12 +3,36 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 
-const WHATSAPP_NUMBER = '+59175873118';
+const DEFAULT_WHATSAPP_NUMBER = '+59175873118';
 
-export default function Catalog({ products }: { products: any[] }) {
+interface Category {
+  _id: string;
+  name: string;
+  slug: string;
+}
+
+const DEFAULT_CATEGORIES: Category[] = [
+  { _id: '1', name: 'Aretes', slug: 'aretes' },
+  { _id: '2', name: 'Anillos', slug: 'anillos' },
+  { _id: '3', name: 'Dijes', slug: 'dijes' },
+  { _id: '4', name: 'Manillas', slug: 'manillas' },
+];
+
+export default function Catalog({ 
+  products, 
+  categories = [], 
+  whatsappNumber 
+}: { 
+  products: any[]; 
+  categories?: Category[]; 
+  whatsappNumber?: string;
+}) {
   const [currentCategory, setCurrentCategory] = useState<string>('all');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [lightboxProduct, setLightboxProduct] = useState<any | null>(null);
+  
+  const activeWhatsapp = whatsappNumber || DEFAULT_WHATSAPP_NUMBER;
+  const activeCategories = categories.length > 0 ? categories : DEFAULT_CATEGORIES;
   
   useEffect(() => {
     if (lightboxProduct) {
@@ -27,7 +51,9 @@ export default function Catalog({ products }: { products: any[] }) {
 
   const getWhatsAppLink = (product: any) => {
     const message = `Hola VK Joyas, me interesa comprar el producto: *${product.name}* (${product.price}). ¿Me podrían brindar información sobre los métodos de pago (transferencia/efectivo)?`;
-    return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+    // Limpiamos el número de espacios, guiones, etc., dejando solo números y el símbolo +
+    const cleanNumber = activeWhatsapp.replace(/[^\d+]/g, '');
+    return `https://wa.me/${cleanNumber}?text=${encodeURIComponent(message)}`;
   };
 
   const handleCategorySelect = (category: string) => {
@@ -42,45 +68,20 @@ export default function Catalog({ products }: { products: any[] }) {
 
   let displayedProducts = products;
   if (currentCategory === 'all') {
-    // Show 8 highlighted products for the home page (if we have that many)
+    // Muestra hasta 8 productos destacados en la página de inicio
     displayedProducts = products.slice(0, 8);
   } else {
     displayedProducts = products.filter(p => p.category === currentCategory);
   }
 
+  // Resolvemos el título de la categoría activa
+  const activeCategoryObj = activeCategories.find(c => c.slug === currentCategory);
+  const categoryTitle = currentCategory === 'all' 
+    ? 'Colección Completa' 
+    : (activeCategoryObj ? activeCategoryObj.name : currentCategory.charAt(0).toUpperCase() + currentCategory.slice(1));
+
   return (
     <>
-      <nav className="navbar">
-        <div className="logo-container" onClick={() => handleCategorySelect('all')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-          {/* Asumiendo que el usuario guardará la imagen como public/logo.png o logo.jpg */}
-          <Image 
-            src="/logo.jpeg" 
-            alt="VK Joyas" 
-            width={45} 
-            height={45} 
-            style={{ 
-              filter: 'invert(1) brightness(2)', /* Esto invierte los colores para que se vea blanco sobre fondo negro */
-              mixBlendMode: 'screen'
-            }} 
-            unoptimized 
-          />
-        </div>
-        <button 
-          className="hamburger" 
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-        >
-          ☰
-        </button>
-        <ul className={`nav-links ${isMenuOpen ? 'active' : ''}`}>
-          <li><button className={currentCategory === 'all' ? 'active' : ''} onClick={() => handleCategorySelect('all')}>Inicio</button></li>
-          <li><button className={currentCategory === 'aretes' ? 'active' : ''} onClick={() => handleCategorySelect('aretes')}>Aretes</button></li>
-          <li><button className={currentCategory === 'anillos' ? 'active' : ''} onClick={() => handleCategorySelect('anillos')}>Anillos</button></li>
-          <li><button className={currentCategory === 'dijes' ? 'active' : ''} onClick={() => handleCategorySelect('dijes')}>Dijes</button></li>
-          <li><button className={currentCategory === 'manillas' ? 'active' : ''} onClick={() => handleCategorySelect('manillas')}>Manillas</button></li>
-          <li><button className={currentCategory === 'otros' ? 'active' : ''} onClick={() => handleCategorySelect('otros')}>Otros</button></li>
-        </ul>
-      </nav>
-
       <section className="hero" id="hero">
         <div className="hero-content">
           <h1>Elegancia en Plata 925</h1>
@@ -93,39 +94,62 @@ export default function Catalog({ products }: { products: any[] }) {
         <div id="home-categories">
           <h2 className="section-title">Nuestras Categorías</h2>
           <div className="categories-grid">
-            <div className="category-card" onClick={() => handleCategorySelect('aretes')}>
-              {products.find(p => p.category === 'aretes') && <Image src={products.find(p => p.category === 'aretes').imageUrl} alt="Aretes de Plata" width={400} height={300} style={{objectFit: 'cover'}} />}
-              <h3 className="category-title">Aretes</h3>
-            </div>
-            <div className="category-card" onClick={() => handleCategorySelect('anillos')}>
-              {products.find(p => p.category === 'anillos') && <Image src={products.find(p => p.category === 'anillos').imageUrl} alt="Anillos de Plata" width={400} height={300} style={{objectFit: 'cover'}} />}
-              <h3 className="category-title">Anillos</h3>
-            </div>
-            <div className="category-card" onClick={() => handleCategorySelect('dijes')}>
-              {products.find(p => p.category === 'dijes') && <Image src={products.find(p => p.category === 'dijes').imageUrl} alt="Dijes de Plata" width={400} height={300} style={{objectFit: 'cover'}} />}
-              <h3 className="category-title">Dijes</h3>
-            </div>
-            <div className="category-card" onClick={() => handleCategorySelect('manillas')}>
-              {products.find(p => p.category === 'manillas') && <Image src={products.find(p => p.category === 'manillas').imageUrl} alt="Manillas de Plata" width={400} height={300} style={{objectFit: 'cover'}} />}
-              <h3 className="category-title">Manillas</h3>
-            </div>
+            {activeCategories.map(cat => {
+              // Busca la primera imagen de un producto que pertenezca a esta categoría
+              const sampleProduct = products.find(p => p.category === cat.slug);
+              return (
+                <div key={cat._id} className="category-card" onClick={() => handleCategorySelect(cat.slug)}>
+                  {sampleProduct && sampleProduct.imageUrl ? (
+                    <Image 
+                      src={sampleProduct.imageUrl} 
+                      alt={`${cat.name} de Plata`} 
+                      width={400} 
+                      height={300} 
+                      style={{objectFit: 'cover'}} 
+                      unoptimized={true}
+                    />
+                  ) : (
+                    <div style={{ 
+                      width: '100%', 
+                      height: '300px', 
+                      backgroundColor: 'rgba(255,255,255,0.03)', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      color: '#a3a3a3',
+                      border: '1px solid rgba(255,255,255,0.05)',
+                      borderRadius: '8px',
+                      fontSize: '1rem',
+                      letterSpacing: '1px'
+                    }}>
+                      Próximamente
+                    </div>
+                  )}
+                  <h3 className="category-title">{cat.name}</h3>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
       <section className="products-container" id="catalogo">
         <h2 className="section-title">
-          {currentCategory === 'all' ? 'Colección Completa' : currentCategory.charAt(0).toUpperCase() + currentCategory.slice(1)}
+          {categoryTitle}
         </h2>
         
         {currentCategory !== 'all' && (
           <div className="filter-buttons">
             <button className={`filter-btn ${currentCategory === 'all' ? 'active' : ''}`} onClick={() => handleCategorySelect('all')}>Todos</button>
-            <button className={`filter-btn ${currentCategory === 'aretes' ? 'active' : ''}`} onClick={() => handleCategorySelect('aretes')}>Aretes</button>
-            <button className={`filter-btn ${currentCategory === 'anillos' ? 'active' : ''}`} onClick={() => handleCategorySelect('anillos')}>Anillos</button>
-            <button className={`filter-btn ${currentCategory === 'dijes' ? 'active' : ''}`} onClick={() => handleCategorySelect('dijes')}>Dijes</button>
-            <button className={`filter-btn ${currentCategory === 'manillas' ? 'active' : ''}`} onClick={() => handleCategorySelect('manillas')}>Manillas</button>
-            <button className={`filter-btn ${currentCategory === 'otros' ? 'active' : ''}`} onClick={() => handleCategorySelect('otros')}>Otros</button>
+            {activeCategories.map(cat => (
+              <button 
+                key={cat._id} 
+                className={`filter-btn ${currentCategory === cat.slug ? 'active' : ''}`} 
+                onClick={() => handleCategorySelect(cat.slug)}
+              >
+                {cat.name}
+              </button>
+            ))}
           </div>
         )}
 
@@ -179,10 +203,6 @@ export default function Catalog({ products }: { products: any[] }) {
           </div>
         )}
       </div>
-
-      <footer>
-        <p>&copy; {new Date().getFullYear()} VK Joyas. Todos los derechos reservados. Diseño en Plata 925.</p>
-      </footer>
     </>
   );
 }

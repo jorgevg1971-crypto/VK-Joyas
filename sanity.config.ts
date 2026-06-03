@@ -11,9 +11,36 @@ export default defineConfig({
   dataset: 'production',
   basePath: '/admin',
 
-  plugins: [structureTool(), visionTool()],
+  plugins: [
+    structureTool({
+      structure: (S) =>
+        S.list()
+          .title('Contenido')
+          .items([
+            // Singleton para la Configuración Global
+            S.listItem()
+              .title('Configuración Global')
+              .id('settings')
+              .child(
+                S.document()
+                  .schemaType('settings')
+                  .documentId('settings')
+                  .title('Configuración Global')
+              ),
+            S.divider(),
+            // Filtrar settings de la lista normal para que no aparezca duplicada
+            ...S.documentTypeListItems().filter(
+              (item) => !['settings'].includes(item.getId() || '')
+            ),
+          ]),
+    }),
+    visionTool()
+  ],
 
   schema: {
     types: schemaTypes,
+    // Previene la creación de nuevos documentos 'settings' desde el botón "+" general
+    templates: (templates) =>
+      templates.filter((template) => template.schemaType !== 'settings'),
   },
 })

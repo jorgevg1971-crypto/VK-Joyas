@@ -20,16 +20,9 @@ export const product = defineType({
     defineField({
       name: 'category',
       title: 'Categoría',
-      type: 'string',
-      options: {
-        list: [
-          {title: 'Aretes', value: 'aretes'},
-          {title: 'Anillos', value: 'anillos'},
-          {title: 'Dijes', value: 'dijes'},
-          {title: 'Manillas', value: 'manillas'},
-          {title: 'Otros', value: 'otros'},
-        ],
-      },
+      type: 'reference',
+      to: [{ type: 'category' }],
+      description: 'Selecciona la categoría a la que pertenece esta joya (debes crear la categoría primero).',
       validation: (rule) => rule.required(),
     }),
     defineField({
