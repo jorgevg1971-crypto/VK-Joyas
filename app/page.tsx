@@ -11,6 +11,7 @@ export default async function Page() {
         _id,
         name,
         price,
+        "showPrice": coalesce(showPrice, true),
         // Compatibilidad: si es referencia obtiene el slug, si es texto viejo lo deja tal cual
         "category": coalesce(category->slug.current, category),
         "categoryName": coalesce(category->name, category),

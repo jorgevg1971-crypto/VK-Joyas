@@ -18,6 +18,13 @@ export const product = defineType({
       validation: (rule) => rule.required(),
     }),
     defineField({
+      name: 'showPrice',
+      title: '¿Mostrar Precio en la Web?',
+      type: 'boolean',
+      description: 'Si se desmarca, el precio de este producto no se mostrará en la web ni en el mensaje de WhatsApp.',
+      initialValue: true,
+    }),
+    defineField({
       name: 'category',
       title: 'Categoría',
       type: 'reference',

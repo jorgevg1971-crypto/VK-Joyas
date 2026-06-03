@@ -50,7 +50,8 @@ export default function Catalog({
   }, [lightboxProduct]);
 
   const getWhatsAppLink = (product: any) => {
-    const message = `Hola VK Joyas, me interesa comprar el producto: *${product.name}* (${product.price}). ¿Me podrían brindar información sobre los métodos de pago (transferencia/efectivo)?`;
+    const priceText = product.showPrice !== false ? ` (${product.price})` : '';
+    const message = `Hola VK Joyas, me interesa comprar el producto: *${product.name}*${priceText}. ¿Me podrían brindar información sobre los métodos de pago (transferencia/efectivo)?`;
     // Limpiamos el número de espacios, guiones, etc., dejando solo números y el símbolo +
     const cleanNumber = activeWhatsapp.replace(/[^\d+]/g, '');
     return `https://wa.me/${cleanNumber}?text=${encodeURIComponent(message)}`;
@@ -167,7 +168,7 @@ export default function Catalog({
                     unoptimized={true} // Sanity URL
                   />
                 )}
-                <div className="product-price">{product.price}</div>
+                {product.showPrice !== false && <div className="product-price">{product.price}</div>}
               </div>
               <div className="product-info">
                 <h3 className="product-title">{product.name}</h3>
