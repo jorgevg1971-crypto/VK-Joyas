@@ -12,5 +12,65 @@ export const settings = defineType({
       description: 'Número telefónico con código de país al que se enviarán las solicitudes de compra (ej. +59175873118).',
       validation: (rule) => rule.required().regex(/^\+?[1-9]\d{1,14}$/).error('Por favor ingresa un formato de número válido (ej. +59175873118)'),
     }),
+    defineField({
+      name: 'socialLinks',
+      title: 'Redes Sociales',
+      type: 'array',
+      description: 'Añade, edita, reordena o desactiva enlaces a tus redes sociales para mostrarlos en el pie de página.',
+      of: [
+        {
+          type: 'object',
+          name: 'socialLink',
+          title: 'Enlace de Red Social',
+          fields: [
+            defineField({
+              name: 'platform',
+              title: 'Plataforma',
+              type: 'string',
+              options: {
+                list: [
+                  { title: 'Facebook', value: 'facebook' },
+                  { title: 'Instagram', value: 'instagram' },
+                  { title: 'TikTok', value: 'tiktok' },
+                  { title: 'Pinterest', value: 'pinterest' },
+                  { title: 'YouTube', value: 'youtube' },
+                ]
+              },
+              validation: (rule) => rule.required(),
+            }),
+            defineField({
+              name: 'url',
+              title: 'Dirección URL de tu Perfil',
+              type: 'url',
+              validation: (rule) => rule.required().uri({
+                scheme: ['http', 'https']
+              }).error('Por favor ingresa un enlace web válido (ej: https://facebook.com/vkjoyas)'),
+            }),
+            defineField({
+              name: 'visible',
+              title: '¿Mostrar en la Web?',
+              type: 'boolean',
+              initialValue: true,
+            })
+          ],
+          preview: {
+            select: {
+              title: 'platform',
+              subtitle: 'url',
+              visible: 'visible',
+            },
+            prepare(selection) {
+              const { title, subtitle, visible } = selection;
+              const formattedTitle = title ? title.charAt(0).toUpperCase() + title.slice(1) : 'Sin plataforma';
+              const visibility = visible === false ? ' (Oculto)' : '';
+              return {
+                title: `${formattedTitle}${visibility}`,
+                subtitle: subtitle,
+              };
+            }
+          }
+        }
+      ]
+    }),
   ],
 })

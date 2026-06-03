@@ -369,10 +369,40 @@ a {
 /* Footer */
 footer {
     text-align: center;
-    padding: 3rem 1rem;
+    padding: 4rem 1rem;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
     color: var(--color-text-muted);
-    margin-top: 2rem;
+    margin-top: 4rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.footer-socials {
+    display: flex;
+    justify-content: center;
+    gap: 1.8rem;
+    margin-bottom: 0.5rem;
+}
+
+.social-icon-link {
+    color: #a3a3a3;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.social-icon-link:hover {
+    color: #ffffff;
+    transform: translateY(-4px) scale(1.1);
+}
+
+.social-icon-link svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: currentColor;
 }
 
 /* Responsive */
