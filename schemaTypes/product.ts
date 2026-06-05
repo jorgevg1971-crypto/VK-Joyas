@@ -57,6 +57,13 @@ export const product = defineType({
       description: 'Si se desmarca, este producto no se mostrará en la web.',
       initialValue: true,
     }),
+    defineField({
+      name: 'isOnSale',
+      title: '¿En Oferta?',
+      type: 'boolean',
+      description: 'Si se marca, se mostrará una etiqueta de "En Oferta" en la parte superior izquierda de la imagen en la web.',
+      initialValue: false,
+    }),
   ],
   preview: {
     select: {
@@ -64,12 +71,14 @@ export const product = defineType({
       subtitle: 'price',
       media: 'image',
       visible: 'visible',
+      isOnSale: 'isOnSale',
     },
-    prepare({ title, subtitle, media, visible }) {
+    prepare({ title, subtitle, media, visible, isOnSale }) {
       const isVisible = visible !== false
+      const isSale = isOnSale === true
       return {
-        title: `${isVisible ? '' : '❌ '}${title || ''}`,
-        subtitle: `${isVisible ? '' : '(OCULTO) '}${subtitle || ''}`,
+        title: `${isVisible ? '' : '❌ '}${isSale ? '🔥 ' : ''}${title || ''}`,
+        subtitle: `${isVisible ? '' : '(OCULTO) '}${isSale ? '[EN OFERTA] ' : ''}${subtitle || ''}`,
         media,
       }
     }

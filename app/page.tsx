@@ -11,6 +11,7 @@ export default async function Page() {
         _id,
         name,
         price,
+        "isOnSale": coalesce(isOnSale, false),
         "showPrice": coalesce(showPrice, true),
         "category": category->slug.current,
         "categoryName": category->name,

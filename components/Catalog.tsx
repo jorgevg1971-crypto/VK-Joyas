@@ -189,6 +189,11 @@ export default function Catalog({
                       unoptimized={true} // Sanity URL
                     />
                   )}
+                  {product.isOnSale && (
+                    <div className="product-sale-tag">
+                      {t('sale')}
+                    </div>
+                  )}
                   {product.showPrice !== false && <div className="product-price">{product.price}</div>}
                 </div>
                 <div className="product-info">

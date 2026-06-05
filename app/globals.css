@@ -265,6 +265,22 @@ a {
     box-shadow: 0 2px 10px rgba(0,0,0,0.2);
 }
 
+.product-sale-tag {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    background: #ef4444;
+    color: white;
+    padding: 0.4rem 0.8rem;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    z-index: 10;
+}
+
 .product-info {
     padding: 1.5rem;
 }

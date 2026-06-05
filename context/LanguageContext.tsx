@@ -25,6 +25,7 @@ const translations = {
     waMessageEnd: "¿Me podrían brindar información sobre los métodos de pago (transferencia/efectivo)?",
     close: "Cerrar",
     closePage: "Cerrar y volver al inicio",
+    sale: "En Oferta",
   },
   en: {
     heroTitle: "Elegance in 925 Silver",
@@ -40,6 +41,7 @@ const translations = {
     waMessageEnd: "Could you please provide information about payment methods (transfer/cash)?",
     close: "Close",
     closePage: "Close and return to home",
+    sale: "Sale",
   }
 };
 
