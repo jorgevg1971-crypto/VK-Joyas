@@ -1,6 +1,7 @@
 "use client";
 
 import { useLanguage } from '@/context/LanguageContext';
+import packageInfo from '../package.json';
 
 interface SocialLink {
   _key: string;
@@ -74,6 +75,7 @@ export default function Footer({ socialLinks = [] }: { socialLinks: SocialLink[]
         </div>
       )}
       <p>&copy; {new Date().getFullYear()} VK Joyas. {t('copyright')}</p>
+      <p style={{ fontSize: '0.75rem', opacity: 0.5, marginTop: '0.5rem' }}>Build v{packageInfo.version}</p>
     </footer>
   );
 }
