@@ -22,11 +22,13 @@ const DEFAULT_CATEGORIES: Category[] = [
 export default function Catalog({ 
   products, 
   categories = [], 
-  whatsappNumber 
+  whatsappNumber,
+  heroImageUrl
 }: { 
   products: any[]; 
   categories?: Category[]; 
   whatsappNumber?: string;
+  heroImageUrl?: string;
 }) {
   const [currentCategory, setCurrentCategory] = useState<string>('all');
   const [lightboxProduct, setLightboxProduct] = useState<any | null>(null);
@@ -91,9 +93,14 @@ export default function Catalog({
     ? t('fullCollection') 
     : (activeCategoryObj ? getLocalized(activeCategoryObj.name) : currentCategory.charAt(0).toUpperCase() + currentCategory.slice(1));
 
+  // Aplicación dinámica del fondo del hero si se configuró en Sanity
+  const heroBgStyle = heroImageUrl
+    ? { background: `linear-gradient(rgba(10,10,10,0.6), rgba(10,10,10,0.9)), url(${heroImageUrl}) center/cover fixed` }
+    : {};
+
   return (
     <>
-      <section className="hero" id="hero">
+      <section className="hero" id="hero" style={heroBgStyle}>
         <div className="hero-content">
           <h1>{t('heroTitle')}</h1>
           <p>{t('heroSubtitle')}</p>

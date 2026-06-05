@@ -24,7 +24,8 @@ export default async function Page() {
         "slug": slug.current
       },
       "settings": *[_type == "settings"][0] {
-        whatsappNumber
+        whatsappNumber,
+        "heroImageUrl": heroImage.asset->url
       }
     }
   `);
@@ -33,7 +34,8 @@ export default async function Page() {
     <Catalog 
       products={data.products || []} 
       categories={data.categories || []}
-      whatsappNumber={data.settings?.whatsappNumber} 
+      whatsappNumber={data.settings?.whatsappNumber}
+      heroImageUrl={data.settings?.heroImageUrl}
     />
   );
 }

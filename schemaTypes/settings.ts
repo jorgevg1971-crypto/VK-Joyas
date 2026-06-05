@@ -13,6 +13,15 @@ export const settings = defineType({
       validation: (rule) => rule.required().regex(/^\+?[1-9]\d{1,14}$/).error('Por favor ingresa un formato de número válido (ej. +59175873118)'),
     }),
     defineField({
+      name: 'heroImage',
+      title: 'Imagen de Portada (Hero)',
+      type: 'image',
+      description: 'Imagen de fondo para la portada de la página de inicio. Si se deja vacía, se usará la de anillos por defecto.',
+      options: {
+        hotspot: true,
+      },
+    }),
+    defineField({
       name: 'socialLinks',
       title: 'Redes Sociales',
       type: 'array',

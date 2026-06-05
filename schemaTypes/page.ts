@@ -1,4 +1,5 @@
 import { defineType, defineField } from 'sanity'
+import { TextBlockInput, SplitBlockInput } from '../components/BilingualBlockInput'
 
 export const page = defineType({
   name: 'page',
@@ -33,6 +34,9 @@ export const page = defineType({
           type: 'object',
           name: 'textBlock',
           title: 'Texto Estándar',
+          components: {
+            input: TextBlockInput
+          },
           fields: [
             defineField({
               name: 'contentEs',
@@ -55,6 +59,9 @@ export const page = defineType({
           type: 'object',
           name: 'splitBlock',
           title: 'Texto e Imagen (2 Columnas)',
+          components: {
+            input: SplitBlockInput
+          },
           fields: [
             defineField({
               name: 'textEs',
