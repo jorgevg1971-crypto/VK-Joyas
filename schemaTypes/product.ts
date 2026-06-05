@@ -1,9 +1,11 @@
 import {defineField, defineType} from 'sanity'
+import { orderRankField, orderRankOrdering } from '@sanity/orderable-document-list'
 
 export const product = defineType({
   name: 'product',
   title: 'Producto',
   type: 'document',
+  orderings: [orderRankOrdering],
   fields: [
     defineField({
       name: 'name',
@@ -24,6 +26,7 @@ export const product = defineType({
       description: 'Si se desmarca, el precio de este producto no se mostrará en la web ni en el mensaje de WhatsApp.',
       initialValue: true,
     }),
+    orderRankField({ type: 'product' }),
     defineField({
       name: 'category',
       title: 'Categoría',

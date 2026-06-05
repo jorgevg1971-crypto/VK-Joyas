@@ -4,10 +4,10 @@ import Catalog from '@/components/Catalog';
 export const revalidate = 60; // Revalida cada 60 segundos
 
 export default async function Page() {
-  // Realiza una consulta conjunta de productos, categorías visibles y configuración en una sola llamada
+  // Consulta conjunta de productos y categorías ordenados manualmente por prioridad (order asc)
   const data = await client.fetch(`
     {
-      "products": *[_type == "product"] {
+      "products": *[_type == "product"] | order(orderRank asc, name.es asc) {
         _id,
         name,
         price,
@@ -18,7 +18,7 @@ export default async function Page() {
         description,
         "imageUrl": image.asset->url
       },
-      "categories": *[_type == "category" && visible == true] | order(name asc) {
+      "categories": *[_type == "category" && visible == true] | order(orderRank asc, name.es asc) {
         _id,
         name,
         "slug": slug.current

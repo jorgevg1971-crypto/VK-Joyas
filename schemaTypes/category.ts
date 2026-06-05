@@ -1,9 +1,11 @@
 import { defineType, defineField } from 'sanity'
+import { orderRankField, orderRankOrdering } from '@sanity/orderable-document-list'
 
 export const category = defineType({
   name: 'category',
   title: 'Categoría',
   type: 'document',
+  orderings: [orderRankOrdering],
   fields: [
     defineField({
       name: 'name',
@@ -22,6 +24,7 @@ export const category = defineType({
       },
       validation: (rule) => rule.required(),
     }),
+    orderRankField({ type: 'category' }),
     defineField({
       name: 'visible',
       title: '¿Visible en la Web?',
