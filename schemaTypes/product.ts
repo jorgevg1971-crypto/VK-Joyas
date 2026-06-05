@@ -50,12 +50,28 @@ export const product = defineType({
       },
       validation: (rule) => rule.required(),
     }),
+    defineField({
+      name: 'visible',
+      title: '¿Visible en la Web?',
+      type: 'boolean',
+      description: 'Si se desmarca, este producto no se mostrará en la web.',
+      initialValue: true,
+    }),
   ],
   preview: {
     select: {
       title: 'name.es',
       subtitle: 'price',
       media: 'image',
+      visible: 'visible',
     },
+    prepare({ title, subtitle, media, visible }) {
+      const isVisible = visible !== false
+      return {
+        title: `${isVisible ? '' : '❌ '}${title || ''}`,
+        subtitle: `${isVisible ? '' : '(OCULTO) '}${subtitle || ''}`,
+        media,
+      }
+    }
   },
 })

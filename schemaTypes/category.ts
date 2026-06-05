@@ -37,6 +37,14 @@ export const category = defineType({
     select: {
       title: 'name.es',
       subtitle: 'slug.current',
+      visible: 'visible',
     },
+    prepare({ title, subtitle, visible }) {
+      const isVisible = visible !== false
+      return {
+        title: `${isVisible ? '' : '❌ '}${title || ''}`,
+        subtitle: `${isVisible ? '' : '(OCULTO) '}${subtitle || ''}`,
+      }
+    }
   },
 })

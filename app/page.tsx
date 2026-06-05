@@ -7,7 +7,7 @@ export default async function Page() {
   // Consulta conjunta de productos y categorías ordenados manualmente por prioridad (order asc)
   const data = await client.fetch(`
     {
-      "products": *[_type == "product"] | order(orderRank asc, name.es asc) {
+      "products": *[_type == "product" && coalesce(visible, true) == true && category->visible == true] | order(orderRank asc, name.es asc) {
         _id,
         name,
         price,
