@@ -1,0 +1,39 @@
+diff --git a/node_modules/sanity-plugin-bulk-delete/dist/index.js b/node_modules/sanity-plugin-bulk-delete/dist/index.js
+index c06ff07..e950da7 100644
+--- a/node_modules/sanity-plugin-bulk-delete/dist/index.js
++++ b/node_modules/sanity-plugin-bulk-delete/dist/index.js
+@@ -116,7 +116,7 @@ function ConfirmDeleteDialog({
+   ) : null;
+ }
+ const BulkDeleteComponent = (config) => {
+-  const { schemaTypes } = config || {}, [docTypes, setDocTypes] = react.useState([]), [selectedType, setSelectedType] = react.useState(""), [selectedDocs, setSelectedDocs] = react.useState(/* @__PURE__ */ new Set()), [loading, setLoading] = react.useState(!1), [documentsData, setDocumentsData] = react.useState([]), [typesData, setTypesData] = react.useState([]), [_, forceRender] = react.useState(0), [stronglyReferencedDocs, setStronglyReferencedDocs] = react.useState([]), [showConfirm, setShowConfirm] = react.useState(!1), currentUser = sanity.useCurrentUser(), perspective = sanity.usePerspective(), perspectiveName = perspective.selectedPerspectiveName || perspective.selectedPerspective, sanityClient = sanity.useClient({ apiVersion: "2025-05-29" }), toast = ui.useToast(), perspectiveMatch = perspectiveName === "published" ? '!(_id in path("drafts.**") || _id in path("versions.**")) &&' : perspectiveName === "drafts" ? '(_id in path("drafts.**")) &&' : sanity.isString(perspectiveName) ? `(_id in path("versions.${perspectiveName}.**")) &&` : "";
++  const { schemaTypes } = config || {}, [docTypes, setDocTypes] = react.useState([]), [selectedType, setSelectedType] = react.useState(""), [selectedDocs, setSelectedDocs] = react.useState(/* @__PURE__ */ new Set()), [loading, setLoading] = react.useState(!1), [documentsData, setDocumentsData] = react.useState([]), [typesData, setTypesData] = react.useState([]), [_, forceRender] = react.useState(0), [stronglyReferencedDocs, setStronglyReferencedDocs] = react.useState([]), [showConfirm, setShowConfirm] = react.useState(!1), currentUser = sanity.useCurrentUser(), perspective = sanity.usePerspective(), perspectiveName = perspective.selectedPerspectiveName || perspective.selectedPerspective, sanityClient = sanity.useClient({ apiVersion: "2025-05-29" }), toast = ui.useToast(), perspectiveMatch = perspectiveName === "published" ? '!(_id in path("drafts.**") || _id in path("versions.**")) &&' : perspectiveName === "drafts" ? '(_id in path("drafts.**")) &&' : sanity.isString(perspectiveName) && perspectiveName !== "raw" && perspectiveName !== "preview" ? `(_id in path("versions.${perspectiveName}.**")) &&` : "";
+   if (!currentUser?.roles?.some(
+     (role) => role.name === "administrator" || config.roles?.includes(role.name)
+   )) {
+diff --git a/node_modules/sanity-plugin-bulk-delete/dist/index.mjs b/node_modules/sanity-plugin-bulk-delete/dist/index.mjs
+index 05a6bb8..accfdca 100644
+--- a/node_modules/sanity-plugin-bulk-delete/dist/index.mjs
++++ b/node_modules/sanity-plugin-bulk-delete/dist/index.mjs
+@@ -118,7 +118,7 @@ function ConfirmDeleteDialog({
+   ) : null;
+ }
+ const BulkDeleteComponent = (config) => {
+-  const { schemaTypes } = config || {}, [docTypes, setDocTypes] = useState([]), [selectedType, setSelectedType] = useState(""), [selectedDocs, setSelectedDocs] = useState(/* @__PURE__ */ new Set()), [loading, setLoading] = useState(!1), [documentsData, setDocumentsData] = useState([]), [typesData, setTypesData] = useState([]), [_, forceRender] = useState(0), [stronglyReferencedDocs, setStronglyReferencedDocs] = useState([]), [showConfirm, setShowConfirm] = useState(!1), currentUser = useCurrentUser(), perspective = usePerspective(), perspectiveName = perspective.selectedPerspectiveName || perspective.selectedPerspective, sanityClient = useClient({ apiVersion: "2025-05-29" }), toast = useToast(), perspectiveMatch = perspectiveName === "published" ? '!(_id in path("drafts.**") || _id in path("versions.**")) &&' : perspectiveName === "drafts" ? '(_id in path("drafts.**")) &&' : isString(perspectiveName) ? `(_id in path("versions.${perspectiveName}.**")) &&` : "";
++  const { schemaTypes } = config || {}, [docTypes, setDocTypes] = useState([]), [selectedType, setSelectedType] = useState(""), [selectedDocs, setSelectedDocs] = useState(/* @__PURE__ */ new Set()), [loading, setLoading] = useState(!1), [documentsData, setDocumentsData] = useState([]), [typesData, setTypesData] = useState([]), [_, forceRender] = useState(0), [stronglyReferencedDocs, setStronglyReferencedDocs] = useState([]), [showConfirm, setShowConfirm] = useState(!1), currentUser = useCurrentUser(), perspective = usePerspective(), perspectiveName = perspective.selectedPerspectiveName || perspective.selectedPerspective, sanityClient = useClient({ apiVersion: "2025-05-29" }), toast = useToast(), perspectiveMatch = perspectiveName === "published" ? '!(_id in path("drafts.**") || _id in path("versions.**")) &&' : perspectiveName === "drafts" ? '(_id in path("drafts.**")) &&' : isString(perspectiveName) && perspectiveName !== "raw" && perspectiveName !== "preview" ? `(_id in path("versions.${perspectiveName}.**")) &&` : "";
+   if (!currentUser?.roles?.some(
+     (role) => role.name === "administrator" || config.roles?.includes(role.name)
+   )) {
+diff --git a/node_modules/sanity-plugin-bulk-delete/src/components/BulkDeleteComponent.tsx b/node_modules/sanity-plugin-bulk-delete/src/components/BulkDeleteComponent.tsx
+index 3dd71f7..405cf13 100644
+--- a/node_modules/sanity-plugin-bulk-delete/src/components/BulkDeleteComponent.tsx
++++ b/node_modules/sanity-plugin-bulk-delete/src/components/BulkDeleteComponent.tsx
+@@ -37,7 +37,7 @@ export const BulkDeleteComponent = (config: BulkDeleteToolOptions) => {
+       ? `!(_id in path("drafts.**") || _id in path("versions.**")) &&`
+       : perspectiveName === 'drafts'
+         ? `(_id in path("drafts.**")) &&`
+-        : isString(perspectiveName)
++        : isString(perspectiveName) && perspectiveName !== 'raw' && perspectiveName !== 'preview'
+           ? `(_id in path("versions.${perspectiveName}.**")) &&`
+           : ''
+ 
