@@ -1,13 +1,12 @@
 {
   "name": "vk-joyas",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "postinstall": "patch-package"
+    "lint": "eslint"
   },
   "dependencies": {
     "@portabletext/react": "^6.2.0",
@@ -19,7 +18,6 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "sanity": "^5.25.1",
-    "sanity-plugin-bulk-delete": "^1.1.1",
     "styled-components": "^6.4.1"
   },
   "devDependencies": {
@@ -28,7 +26,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
-    "patch-package": "^8.0.1",
     "typescript": "^5"
   }
 }
