@@ -32,6 +32,7 @@ export default function Catalog({
 }) {
   const [currentCategory, setCurrentCategory] = useState<string>('all');
   const [lightboxProduct, setLightboxProduct] = useState<any | null>(null);
+  const [visibleCount, setVisibleCount] = useState<number>(21);
   const { language, t } = useLanguage();
   
   const activeWhatsapp = whatsappNumber || DEFAULT_WHATSAPP_NUMBER;
@@ -72,6 +73,7 @@ export default function Catalog({
 
   const handleCategorySelect = (category: string) => {
     setCurrentCategory(category);
+    setVisibleCount(21);
     if (category !== 'all') {
       document.getElementById('catalogo')?.scrollIntoView({ behavior: 'smooth' });
     } else {
@@ -81,8 +83,7 @@ export default function Catalog({
 
   let displayedProducts = products;
   if (currentCategory === 'all') {
-    // Muestra hasta 8 productos destacados en la página de inicio
-    displayedProducts = products.slice(0, 8);
+    displayedProducts = products.slice(0, visibleCount);
   } else {
     displayedProducts = products.filter(p => p.category === currentCategory);
   }
@@ -208,6 +209,16 @@ export default function Catalog({
             );
           })}
         </div>
+        {currentCategory === 'all' && products.length > visibleCount && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '3rem' }}>
+            <button 
+              className="btn-primary" 
+              onClick={() => setVisibleCount(prev => prev + 21)}
+            >
+              {t('showMore')}
+            </button>
+          </div>
+        )}
       </section>
 
       {/* Lightbox */}

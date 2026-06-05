@@ -26,6 +26,7 @@ const translations = {
     close: "Cerrar",
     closePage: "Cerrar y volver al inicio",
     sale: "En Oferta",
+    showMore: "Ver más",
   },
   en: {
     heroTitle: "Elegance in 925 Silver",
@@ -42,6 +43,7 @@ const translations = {
     close: "Close",
     closePage: "Close and return to home",
     sale: "Sale",
+    showMore: "Show more",
   }
 };
 
