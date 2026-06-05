@@ -2,39 +2,39 @@ import { defineType, defineField } from 'sanity'
 
 export const navigation = defineType({
   name: 'navigation',
-  title: 'Navigation',
+  title: 'Navegación',
   type: 'document',
   fields: [
     defineField({
       name: 'title',
-      title: 'Title',
+      title: 'Título del Menú (Interno)',
       type: 'string',
-      description: 'Internal name for this navigation menu (e.g. "Main Menu")',
+      description: 'Nombre interno para este menú (ej: "Menú Principal")',
     }),
     defineField({
       name: 'items',
-      title: 'Menu Items',
+      title: 'Elementos del Menú',
       type: 'array',
       of: [
         {
           type: 'object',
           name: 'menuItem',
-          title: 'Menu Item',
+          title: 'Elemento del Menú',
           fields: [
             defineField({
               name: 'title',
-              title: 'Title',
-              type: 'string',
-              validation: (rule) => rule.required(),
+              title: 'Título del Botón',
+              type: 'localeString',
+              description: 'Título del botón traducible (Español e Inglés).',
             }),
             defineField({
               name: 'linkType',
-              title: 'Link Type',
+              title: 'Tipo de Enlace',
               type: 'string',
               options: {
                 list: [
-                  { title: 'Static URL', value: 'url' },
-                  { title: 'Page Reference', value: 'page' }
+                  { title: 'Enlace estático (URL)', value: 'url' },
+                  { title: 'Referencia a Página', value: 'page' }
                 ],
                 layout: 'radio'
               },
@@ -42,42 +42,42 @@ export const navigation = defineType({
             }),
             defineField({
               name: 'url',
-              title: 'Static URL',
+              title: 'Dirección URL Estática',
               type: 'string',
-              description: 'e.g. / or /#catalogo',
+              description: 'Ej: / o /#catalogo',
               hidden: ({ parent }) => parent?.linkType !== 'url',
             }),
             defineField({
               name: 'pageRef',
-              title: 'Page Reference',
+              title: 'Página de Destino',
               type: 'reference',
               to: [{ type: 'page' }],
               hidden: ({ parent }) => parent?.linkType !== 'page',
             }),
             defineField({
               name: 'subItems',
-              title: 'Sub Items',
+              title: 'Sub-elementos (Submenú)',
               type: 'array',
               of: [
                 {
                   type: 'object',
                   name: 'subMenuItem',
-                  title: 'Sub Menu Item',
+                  title: 'Elemento del Submenú',
                   fields: [
                     defineField({
                       name: 'title',
-                      title: 'Title',
-                      type: 'string',
-                      validation: (rule) => rule.required(),
+                      title: 'Título del Sub-botón',
+                      type: 'localeString',
+                      description: 'Título del botón traducible (Español e Inglés).',
                     }),
                     defineField({
                       name: 'linkType',
-                      title: 'Link Type',
+                      title: 'Tipo de Enlace',
                       type: 'string',
                       options: {
                         list: [
-                          { title: 'Static URL', value: 'url' },
-                          { title: 'Page Reference', value: 'page' }
+                          { title: 'Enlace estático (URL)', value: 'url' },
+                          { title: 'Referencia a Página', value: 'page' }
                         ],
                         layout: 'radio'
                       },
@@ -85,13 +85,13 @@ export const navigation = defineType({
                     }),
                     defineField({
                       name: 'url',
-                      title: 'Static URL',
+                      title: 'Dirección URL Estática',
                       type: 'string',
                       hidden: ({ parent }) => parent?.linkType !== 'url',
                     }),
                     defineField({
                       name: 'pageRef',
-                      title: 'Page Reference',
+                      title: 'Página de Destino',
                       type: 'reference',
                       to: [{ type: 'page' }],
                       hidden: ({ parent }) => parent?.linkType !== 'page',
@@ -103,7 +103,7 @@ export const navigation = defineType({
           ],
           preview: {
             select: {
-              title: 'title',
+              title: 'title.es',
             },
           },
         },

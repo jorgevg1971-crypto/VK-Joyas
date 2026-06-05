@@ -8,16 +8,16 @@ export const category = defineType({
     defineField({
       name: 'name',
       title: 'Nombre de la Categoría',
-      type: 'string',
-      validation: (rule) => rule.required(),
+      type: 'localeString',
+      description: 'Nombre de la categoría traducible (Español e Inglés).',
     }),
     defineField({
       name: 'slug',
       title: 'Identificador (Slug)',
       type: 'slug',
-      description: 'Se usa para la URL y filtros. Haz clic en "Generate" para crearlo automáticamente a partir del nombre.',
+      description: 'Se usa para la URL y filtros. Haz clic en "Generate" para crearlo automáticamente a partir del nombre en español.',
       options: {
-        source: 'name',
+        source: 'name.es',
         maxLength: 96,
       },
       validation: (rule) => rule.required(),
@@ -30,4 +30,10 @@ export const category = defineType({
       initialValue: true,
     }),
   ],
+  preview: {
+    select: {
+      title: 'name.es',
+      subtitle: 'slug.current',
+    },
+  },
 })

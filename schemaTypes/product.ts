@@ -8,8 +8,8 @@ export const product = defineType({
     defineField({
       name: 'name',
       title: 'Nombre del Producto',
-      type: 'string',
-      validation: (rule) => rule.required(),
+      type: 'localeString',
+      description: 'Nombre traducible del producto (Español e Inglés).',
     }),
     defineField({
       name: 'price',
@@ -35,7 +35,8 @@ export const product = defineType({
     defineField({
       name: 'description',
       title: 'Descripción',
-      type: 'text',
+      type: 'localeText',
+      description: 'Descripción traducible del producto (Español e Inglés).',
     }),
     defineField({
       name: 'image',
@@ -47,4 +48,11 @@ export const product = defineType({
       validation: (rule) => rule.required(),
     }),
   ],
+  preview: {
+    select: {
+      title: 'name.es',
+      subtitle: 'price',
+      media: 'image',
+    },
+  },
 })

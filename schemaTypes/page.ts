@@ -7,16 +7,17 @@ export const page = defineType({
   fields: [
     defineField({
       name: 'title',
-      title: 'Título',
-      type: 'string',
-      validation: (rule) => rule.required(),
+      title: 'Título de la Página',
+      type: 'localeString',
+      description: 'Título de la página traducible (Español e Inglés).',
     }),
     defineField({
       name: 'slug',
       title: 'Slug',
       type: 'slug',
+      description: 'Se usa para la URL. Haz clic en "Generate" para crearlo automáticamente a partir del título en español.',
       options: {
-        source: 'title',
+        source: 'title.es',
         maxLength: 96,
       },
       validation: (rule) => rule.required(),
@@ -27,31 +28,43 @@ export const page = defineType({
       type: 'array',
       description: 'Crea el diseño de tu página añadiendo, ordenando y combinando los siguientes bloques modulares.',
       of: [
-        // Bloque de Texto Estándar (envuelto en objeto para habilitar la interfaz "Add item")
+        // Bloque de Texto Estándar (Traducible)
         {
           type: 'object',
           name: 'textBlock',
           title: 'Texto Estándar',
           fields: [
             defineField({
-              name: 'content',
-              title: 'Texto',
+              name: 'contentEs',
+              title: 'Texto (Español)',
               type: 'array',
               of: [{ type: 'block' }],
               validation: (rule) => rule.required(),
             }),
+            defineField({
+              name: 'contentEn',
+              title: 'Texto (Inglés)',
+              type: 'array',
+              of: [{ type: 'block' }],
+            }),
           ],
         },
         
-        // Bloque de Texto e Imagen (Split)
+        // Bloque de Texto e Imagen (Split, Traducible)
         {
           type: 'object',
           name: 'splitBlock',
           title: 'Texto e Imagen (2 Columnas)',
           fields: [
             defineField({
-              name: 'text',
-              title: 'Texto',
+              name: 'textEs',
+              title: 'Texto (Español)',
+              type: 'array',
+              of: [{ type: 'block' }],
+            }),
+            defineField({
+              name: 'textEn',
+              title: 'Texto (Inglés)',
               type: 'array',
               of: [{ type: 'block' }],
             }),
@@ -78,7 +91,7 @@ export const page = defineType({
           ],
         },
 
-        // Bloque de Galería (Grid)
+        // Bloque de Galería (Grid, Traducible)
         {
           type: 'object',
           name: 'galleryBlock',
@@ -86,8 +99,8 @@ export const page = defineType({
           fields: [
             defineField({
               name: 'title',
-              title: 'Título de la Galería (Opcional)',
-              type: 'string',
+              title: 'Título de la Galería',
+              type: 'localeString',
             }),
             defineField({
               name: 'images',
@@ -101,7 +114,7 @@ export const page = defineType({
                     {
                       name: 'caption',
                       title: 'Descripción / Nombre de la Joya',
-                      type: 'string',
+                      type: 'localeString',
                     }
                   ]
                 }
@@ -135,4 +148,10 @@ export const page = defineType({
       },
     }),
   ],
+  preview: {
+    select: {
+      title: 'title.es',
+      subtitle: 'slug.current',
+    },
+  },
 })
