@@ -13,10 +13,11 @@ import com.example.digitalsignage.ui.setup.SetupScreen
 fun MainNavigation() {
   val context = LocalContext.current
   val prefs = context.getSharedPreferences("digitalsignage_prefs", Context.MODE_PRIVATE)
-  val savedFolder = prefs.getString("selected_folder", null)
+  val savedIp = prefs.getString("smb_ip", null)
+  val savedShare = prefs.getString("smb_share", null)
 
-  // Start directly on Player screen if folder is configured, otherwise start at Setup
-  val initialScreen = if (savedFolder != null) Player else Setup
+  // Start directly on Player screen if server is configured, otherwise start at Setup
+  val initialScreen = if (savedIp != null && savedShare != null) Player else Setup
   val backStack = rememberNavBackStack(initialScreen)
 
   NavDisplay(
@@ -26,8 +27,13 @@ fun MainNavigation() {
       entryProvider {
         entry<Setup> {
           SetupScreen(
-            onFolderSelected = { folder ->
-              prefs.edit().putString("selected_folder", folder).commit()
+            onSetupComplete = { ip, share, user, pass ->
+              prefs.edit()
+                .putString("smb_ip", ip)
+                .putString("smb_share", share)
+                .putString("smb_user", user)
+                .putString("smb_pass", pass)
+                .commit()
               // Remove setup from backstack and navigate to player
               backStack.removeLastOrNull()
               backStack.add(Player)
@@ -37,7 +43,12 @@ fun MainNavigation() {
         entry<Player> {
           PlayerScreen(
             onResetConfig = {
-              prefs.edit().remove("selected_folder").commit()
+              prefs.edit()
+                .remove("smb_ip")
+                .remove("smb_share")
+                .remove("smb_user")
+                .remove("smb_pass")
+                .commit()
               backStack.removeLastOrNull()
               backStack.add(Setup)
             }

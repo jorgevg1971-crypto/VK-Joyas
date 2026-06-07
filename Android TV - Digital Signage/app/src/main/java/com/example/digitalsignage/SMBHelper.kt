@@ -31,51 +31,79 @@ data class ActivePlaylistItem(
 
 object SMBHelper {
     private const val TAG = "SMBHelper"
-    private const val SERVER = "192.168.0.10"
-    private const val SHARE_NAME = "recursos Varios"
-    private const val BASE_PATH = "DigitalSignage"
 
-    fun syncAndGetMediaFiles(folder: String, cacheDir: File, onStatusUpdate: (String) -> Unit): List<ActivePlaylistItem> {
+    // Test a connection to verify credentials. Returns true or throws descriptive error.
+    fun testConnection(ip: String, shareName: String, user: String, pass: String) {
         val client = SMBClient()
         try {
-            onStatusUpdate("Conectando al servidor SMB 192.168.0.10...")
             val connection = try {
-                client.connect(SERVER)
+                client.connect(ip)
             } catch (e: Exception) {
-                throw Exception("Error de red: No se pudo conectar a 192.168.0.10. ¿Está encendido el servidor y en la misma red?", e)
+                throw Exception("No se pudo conectar a la IP $ip. Verifica la red.", e)
             }
 
             connection.use { conn ->
-                onStatusUpdate("Autenticando como usuario ePC...")
                 val session = try {
-                    val authContext = AuthenticationContext("ePC", "epcucb2015".toCharArray(), null)
+                    val authContext = AuthenticationContext(user, pass.toCharArray(), null)
                     conn.authenticate(authContext)
                 } catch (e: Exception) {
-                    throw Exception("Error de autenticación: Credenciales incorrectas para el usuario 'ePC'.", e)
+                    throw Exception("Credenciales incorrectas para el usuario '$user'.", e)
                 }
 
-                onStatusUpdate("Conectando a la carpeta compartida '$SHARE_NAME'...")
-                val share = try {
-                    session.connectShare(SHARE_NAME) as DiskShare
+                try {
+                    session.connectShare(shareName).use { }
                 } catch (e: Exception) {
-                    throw Exception("Error de recurso: No se pudo abrir '$SHARE_NAME'. Verifica que el nombre esté bien escrito en Windows.", e)
+                    throw Exception("No se pudo abrir la carpeta '$shareName'. Verifica el nombre del recurso compartido.", e)
+                }
+            }
+        } finally {
+            try {
+                client.close()
+            } catch (e: Exception) { }
+        }
+    }
+
+    fun syncAndGetMediaFiles(
+        ip: String,
+        shareName: String,
+        user: String,
+        pass: String,
+        cacheDir: File,
+        onStatusUpdate: (String) -> Unit
+    ): List<ActivePlaylistItem> {
+        val client = SMBClient()
+        try {
+            onStatusUpdate("Conectando al servidor $ip...")
+            val connection = try {
+                client.connect(ip)
+            } catch (e: Exception) {
+                throw Exception("Error de red: No se pudo conectar a $ip. ¿Está encendido el servidor y en la misma red?", e)
+            }
+
+            connection.use { conn ->
+                onStatusUpdate("Autenticando como '$user'...")
+                val session = try {
+                    val authContext = AuthenticationContext(user, pass.toCharArray(), null)
+                    conn.authenticate(authContext)
+                } catch (e: Exception) {
+                    throw Exception("Error de autenticación: Credenciales incorrectas para el usuario '$user'.", e)
                 }
 
-                val dirPath = if (folder == "RAIZ" || folder.isEmpty()) BASE_PATH else "$BASE_PATH\\$folder"
-                onStatusUpdate("Accediendo a la carpeta '$dirPath'...")
-
-                if (!share.folderExists(dirPath)) {
-                    throw Exception("Ruta no encontrada: La carpeta '$dirPath' no existe dentro de '$SHARE_NAME'.")
+                onStatusUpdate("Conectando a la carpeta compartida '$shareName'...")
+                val share = try {
+                    session.connectShare(shareName) as DiskShare
+                } catch (e: Exception) {
+                    throw Exception("Error de recurso: No se pudo abrir '$shareName'. Verifica el nombre del recurso compartido.", e)
                 }
 
-                val playlistPath = "$dirPath\\playlist.json"
+                val playlistPath = "playlist.json"
                 var playlistContent = readTextFromSMB(share, playlistPath)
 
-                // If playlist.json does not exist, scan folder and generate a default one
+                // If playlist.json does not exist in root, scan root and generate a default one
                 if (playlistContent == null) {
                     onStatusUpdate("Generando playlist.json por defecto...")
                     val files = try {
-                        share.list(dirPath)
+                        share.list("")
                     } catch (e: Exception) {
                         emptyList()
                     }
@@ -115,7 +143,7 @@ object SMBHelper {
                 }
 
                 if (playlistContent == null) {
-                    throw Exception("Lista de reproducción vacía: No se encontró playlist.json ni archivos multimedia en '$dirPath'.")
+                    throw Exception("Lista de reproducción vacía: No se encontró playlist.json ni archivos multimedia en la carpeta raíz.")
                 }
 
                 // Parse playlist.json
@@ -138,7 +166,7 @@ object SMBHelper {
 
                 // Check directory files on the server to cross-reference sizes
                 val files = try {
-                    share.list(dirPath)
+                    share.list("")
                 } catch (e: Exception) {
                     throw Exception("Error al leer la lista de archivos del servidor.", e)
                 }
@@ -153,7 +181,7 @@ object SMBHelper {
 
                     if (fileInfo != null) {
                         val remoteFileSize = fileInfo.endOfFile
-                        val relativeFilePath = "$dirPath\\$remoteFileName"
+                        val relativeFilePath = remoteFileName
                         val localFile = File(cacheDir, remoteFileName)
                         val isVideo = isVideoFile(remoteFileName)
                         val duration = item.duration ?: 12

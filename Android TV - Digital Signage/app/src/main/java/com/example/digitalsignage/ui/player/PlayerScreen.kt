@@ -46,7 +46,10 @@ fun PlayerScreen(onResetConfig: () -> Unit) {
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val prefs = remember { context.getSharedPreferences("digitalsignage_prefs", Context.MODE_PRIVATE) }
-    val folder = remember { prefs.getString("selected_folder", "") ?: "" }
+    val ip = remember { prefs.getString("smb_ip", "") ?: "" }
+    val share = remember { prefs.getString("smb_share", "") ?: "" }
+    val user = remember { prefs.getString("smb_user", "") ?: "" }
+    val pass = remember { prefs.getString("smb_pass", "") ?: "" }
 
     val playlist = remember { mutableStateListOf<ActivePlaylistItem>() }
     var currentIndex by remember { mutableIntStateOf(0) }
@@ -109,7 +112,7 @@ fun PlayerScreen(onResetConfig: () -> Unit) {
     }
 
     // Background sync loop to verify files from SMB share
-    LaunchedEffect(folder) {
+    LaunchedEffect(ip, share) {
         val cacheDir = File(context.cacheDir, "media_cache")
         if (!cacheDir.exists()) {
             cacheDir.mkdirs()
@@ -119,7 +122,7 @@ fun PlayerScreen(onResetConfig: () -> Unit) {
             errorMessage = null
             withContext(Dispatchers.IO) {
                 try {
-                    val downloadedList = SMBHelper.syncAndGetMediaFiles(folder, cacheDir) { status ->
+                    val downloadedList = SMBHelper.syncAndGetMediaFiles(ip, share, user, pass, cacheDir) { status ->
                         statusMessage = status
                     }
                     withContext(Dispatchers.Main) {
@@ -220,8 +223,7 @@ fun PlayerScreen(onResetConfig: () -> Unit) {
                 Spacer(modifier = Modifier.height(20.dp))
                 Text(statusMessage, color = Color.White, fontSize = 20.sp)
                 Spacer(modifier = Modifier.height(8.dp))
-                val pathString = if (folder == "RAIZ") "DigitalSignage/" else "DigitalSignage/$folder"
-                Text("Origen: \\\\192.168.0.10\\recursos Varios\\$pathString", color = Color.Gray, fontSize = 14.sp)
+                Text("Origen: \\\\$ip\\$share", color = Color.Gray, fontSize = 14.sp)
             }
         } else if (errorMessage != null && playlist.isEmpty()) {
             Column(
