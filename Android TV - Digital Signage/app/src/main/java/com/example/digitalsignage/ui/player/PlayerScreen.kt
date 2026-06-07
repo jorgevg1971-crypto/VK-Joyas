@@ -46,10 +46,10 @@ fun PlayerScreen(onResetConfig: () -> Unit) {
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val prefs = remember { context.getSharedPreferences("digitalsignage_prefs", Context.MODE_PRIVATE) }
-    val ip = remember { prefs.getString("smb_ip", "") ?: "" }
-    val share = remember { prefs.getString("smb_share", "") ?: "" }
-    val user = remember { prefs.getString("smb_user", "") ?: "" }
-    val pass = remember { prefs.getString("smb_pass", "") ?: "" }
+    val ip = prefs.getString("smb_ip", "") ?: ""
+    val share = prefs.getString("smb_share", "") ?: ""
+    val user = prefs.getString("smb_user", "") ?: ""
+    val pass = prefs.getString("smb_pass", "") ?: ""
 
     val playlist = remember { mutableStateListOf<ActivePlaylistItem>() }
     var currentIndex by remember { mutableIntStateOf(0) }
