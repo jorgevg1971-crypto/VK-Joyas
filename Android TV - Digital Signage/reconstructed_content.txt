@@ -1,0 +1,71 @@
+Created At: 2026-06-08T03:51:15Z
+Completed At: 2026-06-08T03:51:16Z
+File Path: `file:///c:/Users/jorge/VK%20Joyas/Android%20TV%20-%20Digital%20Signage/PlaylistEditor.cs`
+Total Lines: 63
+Total Bytes: 2052
+Showing lines 1 to 63
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: using System;
+2: using System.Collections.Generic;
+3: using System.IO;
+4: using System.Text;
+5: using System.Windows.Forms;
+6: using System.Drawing;
+7: using System.Runtime.Serialization;
+8: using System.Runtime.Serialization.Json;
+9: 
+10: namespace PlaylistEditorApp
+11: {
+12:     [DataContract]
+13:     public class PlaylistItem
+14:     {
+15:         [DataMember(EmitDefaultValue = false)]
+16:         public string file { get; set; }
+17:         
+18:         [DataMember(EmitDefaultValue = true)]
+19:         public int? duration { get; set; }
+20:         
+21:         [DataMember(EmitDefaultValue = true)]
+22:         public string schedule { get; set; }
+23:         
+24:         [DataMember(EmitDefaultValue = true)]
+25:         public string days { get; set; }
+26:     }
+27: 
+28:     public class PlaylistForm : Form
+29:     {
+30:         private ListBox lbDiskFiles;
+31:         private DataGridView dgvPlaylist;
+32:         private Button btnAdd;
+33:         private Button btnRemove;
+34:         private Button btnMoveUp;
+35:         private Button btnMoveDown;
+36:         private Button btnSave;
+37:         private Button btnRefresh;
+38:         private Label lblPath;
+39: 
+40:         private string currentDir;
+41:         private readonly string[] supportedExtensions = { ".png", ".jpg", ".jpeg", ".webp", ".mp4", ".mkv", ".avi" };
+42: 
+43:         public PlaylistForm()
+44:         {
+45:             InitializeComponent();
+46:             currentDir = AppDomain.CurrentDomain.BaseDirectory;
+47:             lblPath.Text = "Carpeta: " + currentDir;
+48:             LoadFilesFromDisk();
+49:             LoadPlaylistJson();
+50:         }
+51: 
+52:         private void InitializeComponent()
+53:         {
+54:             this.Text = "Configurador de Playlist - Digital Signage";
+55:             this.Size = new Size(1100, 650);
+56:             this.MinimumSize = new Size(950, 500);
+57:             this.StartPosition = FormStartPosition.CenterScreen;
+58:             this.BackColor = Color.FromArgb(24, 24, 28);
+59:             this.ForeColor = Color.FromArgb(240, 240, 245);
+60:             this.Font = new Font("Segoe UI", 10F, FontStyle.Regular, GraphicsUnit.Point);
+61: 
+62:           
+63: <truncated 19648 bytes>
+The above content shows the entire, complete file contents of the requested file.

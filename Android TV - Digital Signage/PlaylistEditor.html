@@ -483,11 +483,15 @@
                     <thead>
                         <tr>
                             <th style="width: 50px;">Orden</th>
-                            <th style="width: 100px;">Tipo</th>
-                            <th>Archivo</th>
-                            <th style="width: 120px;">Duración (s)</th>
-                            <th style="width: 160px;">Rango de Horas</th>
-                            <th style="width: 250px;">Días Activos</th>
+                            <th style="width: 160px;">Diseño (Layout)</th>
+                            <th style="width: 200px;">Contenido Principal</th>
+                            <th style="width: 180px;">Barra Lateral (Imagen)</th>
+                            <th>Texto Marquesina</th>
+                            <th style="width: 100px;">Duración (s)</th>
+                            <th style="width: 90px;">Zoom Prin. (%)</th>
+                            <th style="width: 90px;">Zoom Lat. (%)</th>
+                            <th style="width: 150px;">Horario</th>
+                            <th style="width: 180px;">Días Activos</th>
                             <th style="width: 80px; text-align: center;">Acciones</th>
                         </tr>
                     </thead>
@@ -565,12 +569,28 @@
                 const file = await fileHandle.getFile();
                 const text = await file.text();
                 playlist = JSON.parse(text);
+
+                // Ensure all fields are initialized
+                playlist.forEach(item => {
+                    if (!item.layout) item.layout = 'fullscreen';
+                    if (!item.main_file) item.main_file = item.file || "";
+                    if (!item.file) item.file = item.main_file;
+                    if (!item.sidebar_file) item.sidebar_file = "";
+                    if (!item.ticker_text) item.ticker_text = "";
+                    if (item.zoom === undefined || item.zoom === null) item.zoom = 100;
+                    if (item.sidebar_zoom === undefined || item.sidebar_zoom === null) item.sidebar_zoom = 100;
+                });
             } catch (err) {
                 console.log("No existe playlist.json previo, se generará al guardar.");
-                // Load default empty playlist or populate with directory files
                 playlist = filesInDir.map(name => ({
+                    layout: 'fullscreen',
                     file: name,
+                    main_file: name,
+                    sidebar_file: "",
+                    ticker_text: "",
                     duration: isVideoFile(name) ? null : 12,
+                    zoom: 100,
+                    sidebar_zoom: 100,
                     schedule: null,
                     days: null
                 }));
@@ -592,7 +612,7 @@
             mediaList.innerHTML = '';
             
             filesInDir.forEach(name => {
-                const isItemInPlaylist = playlist.some(p => p.file === name);
+                const isItemInPlaylist = playlist.some(p => (p.main_file || p.file) === name);
                 const li = document.createElement('li');
                 li.className = 'file-item';
                 
@@ -606,20 +626,37 @@
                     <span class="file-status ${isItemInPlaylist ? 'active' : ''}"></span>
                 `;
                 
-                li.addEventListener('click', () => {
+                li.addEventListener('click', async () => {
                     if (isItemInPlaylist) {
-                        // Remove from playlist
-                        playlist = playlist.filter(p => p.file !== name);
+                        playlist = playlist.filter(p => (p.main_file || p.file) !== name);
+                        renderUI();
                     } else {
-                        // Add to playlist
-                        playlist.push({
+                        const isVideo = isVideoFile(name);
+                        const newItem = {
+                            layout: 'fullscreen',
                             file: name,
-                            duration: isVideoFile(name) ? null : 12,
+                            main_file: name,
+                            sidebar_file: "",
+                            ticker_text: "",
+                            duration: isVideo ? 10 : 12,
+                            zoom: 100,
+                            sidebar_zoom: 100,
                             schedule: null,
                             days: null
-                        });
+                        };
+                        playlist.push(newItem);
+                        renderUI();
+                        
+                        if (isVideo) {
+                            try {
+                                const dur = await getVideoDuration(name);
+                                newItem.duration = dur;
+                                renderUI();
+                            } catch (e) {
+                                console.error("Error loading video duration", e);
+                            }
+                        }
                     }
-                    renderUI();
                 });
                 
                 mediaList.appendChild(li);
@@ -649,10 +686,8 @@
                     const tr = document.createElement('tr');
                     tr.className = 'playlist-row';
                     
-                    const isVideo = isVideoFile(item.file);
-                    const typeBadge = isVideo 
-                        ? `<span class="badge badge-video">Video</span>` 
-                        : `<span class="badge badge-image">Imagen</span>`;
+                    const mainFile = item.main_file || item.file || "";
+                    const isVideo = isVideoFile(mainFile);
 
                     // Generate Day Selector HTML
                     const daysActiveList = item.days ? item.days.split(',').map(d => d.trim().toLowerCase()) : [];
@@ -675,23 +710,65 @@
                         endHour = parts[1].trim();
                     }
 
+                    // Layout select
+                    const layouts = [
+                        { id: 'fullscreen', label: 'Pantalla Completa' },
+                        { id: 'split_sidebar', label: 'Barra Lateral (70/30)' },
+                        { id: 'split_ticker', label: 'Cinta Inferior' },
+                        { id: 'three_regions', label: 'Tres Regiones' }
+                    ];
+                    let layoutOptions = '';
+                    layouts.forEach(l => {
+                        layoutOptions += `<option value="${l.id}" ${item.layout === l.id ? 'selected' : ''}>${l.label}</option>`;
+                    });
+                    const layoutSelect = `<select onchange="updateLayout(${index}, this.value)" style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); color: var(--text-color); padding: 8px; border-radius: 8px; font-family: inherit; font-size: 13px; width: 100%; outline: none; border-color: rgba(255,255,255,0.08);">${layoutOptions}</select>`;
+
+                    // Main file select
+                    let mainFileOptions = '<option value="">Ninguno</option>';
+                    filesInDir.forEach(f => {
+                        mainFileOptions += `<option value="${f}" ${mainFile === f ? 'selected' : ''}>${f}</option>`;
+                    });
+                    const mainFileSelect = `<select onchange="updateMainFile(${index}, this.value)" style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); color: var(--text-color); padding: 8px; border-radius: 8px; font-family: inherit; font-size: 13px; width: 100%; outline: none; border-color: rgba(255,255,255,0.08);">${mainFileOptions}</select>`;
+
+                    // Sidebar file select
+                    const hasSidebar = item.layout === 'split_sidebar' || item.layout === 'three_regions';
+                    let sidebarFileOptions = '<option value="">Ninguno</option>';
+                    filesInDir.forEach(f => {
+                        if (!isVideoFile(f)) {
+                            sidebarFileOptions += `<option value="${f}" ${item.sidebar_file === f ? 'selected' : ''}>${f}</option>`;
+                        }
+                    });
+                    const sidebarFileSelect = `<select onchange="updateSidebarFile(${index}, this.value)" ${hasSidebar ? '' : 'disabled'} style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); color: var(--text-color); padding: 8px; border-radius: 8px; font-family: inherit; font-size: 13px; width: 100%; outline: none; border-color: rgba(255,255,255,0.08); opacity: ${hasSidebar ? 1 : 0.4}">${sidebarFileOptions}</select>`;
+
+                    // Ticker text input
+                    const hasTicker = item.layout === 'split_ticker' || item.layout === 'three_regions';
+                    const tickerInput = `<input type="text" value="${item.ticker_text || ''}" onchange="updateTickerText(${index}, this.value)" ${hasTicker ? '' : 'disabled'} placeholder="Mensaje..." style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); color: var(--text-color); padding: 8px; border-radius: 8px; font-family: inherit; font-size: 13px; width: 100%; outline: none; border-color: rgba(255,255,255,0.08); opacity: ${hasTicker ? 1 : 0.4}" />`;
+
+                    const sidebarZoomInput = `<input type="number" min="10" max="500" value="${item.sidebar_zoom || 100}" 
+                                   ${hasSidebar ? '' : 'disabled'} style="width: 70px; opacity: ${hasSidebar ? 1 : 0.4}" onchange="updateSidebarZoom(${index}, this.value)">`;
+
                     tr.innerHTML = `
                         <td style="font-weight: 600; color: var(--text-secondary); text-align: center;">${index + 1}</td>
-                        <td>${typeBadge}</td>
+                        <td>${layoutSelect}</td>
+                        <td>${mainFileSelect}</td>
+                        <td>${sidebarFileSelect}</td>
+                        <td>${tickerInput}</td>
                         <td>
-                            <div class="file-name" style="font-weight: 600; max-width: 250px;" title="${item.file}">${item.file}</div>
+                            <input type="number" min="1" max="9999" value="${item.duration !== null && item.duration !== undefined ? item.duration : (isVideo ? 10 : 12)}" 
+                                   style="width: 70px;" onchange="updateDuration(${index}, this.value)">
                         </td>
                         <td>
-                            ${isVideo ? '<span style="color: var(--text-secondary); font-size:12px;">Auto (Video)</span>' : `
-                                <input type="number" min="1" max="999" value="${item.duration || 12}" 
-                                       style="width: 80px;" onchange="updateDuration(${index}, this.value)">
-                            `}
+                            <input type="number" min="10" max="500" value="${item.zoom || 100}" 
+                                   style="width: 70px;" onchange="updateZoom(${index}, this.value)">
+                        </td>
+                        <td>
+                            ${sidebarZoomInput}
                         </td>
                         <td>
                             <div style="display: flex; align-items: center; gap: 4px;">
-                                <input type="time" value="${startHour}" onchange="updateHour(${index}, 'start', this.value)" style="width: 85px;">
+                                <input type="time" value="${startHour}" onchange="updateHour(${index}, 'start', this.value)" style="width: 75px;">
                                 <span style="color: var(--text-secondary); font-size: 11px;">a</span>
-                                <input type="time" value="${endHour}" onchange="updateHour(${index}, 'end', this.value)" style="width: 85px;">
+                                <input type="time" value="${endHour}" onchange="updateHour(${index}, 'end', this.value)" style="width: 75px;">
                             </div>
                         </td>
                         <td>${daySelectorHtml}</td>
@@ -708,7 +785,69 @@
             }
         }
 
+        // Helper to get video duration asynchronously via temporary HTML5 video element
+        async function getVideoDuration(fileName) {
+            try {
+                if (!dirHandle) return 10;
+                const fileHandle = await dirHandle.getFileHandle(fileName);
+                const file = await fileHandle.getFile();
+                return new Promise((resolve) => {
+                    const video = document.createElement('video');
+                    video.preload = 'metadata';
+                    video.onloadedmetadata = function() {
+                        const dur = Math.round(video.duration);
+                        resolve(dur > 0 ? dur : 10);
+                    };
+                    video.onerror = function() {
+                        resolve(10);
+                    };
+                    video.src = URL.createObjectURL(file);
+                });
+            } catch (e) {
+                console.error("Error getting video duration", e);
+                return 10;
+            }
+        }
+
         // Action Handlers
+        window.updateLayout = function(index, value) {
+            playlist[index].layout = value;
+            renderUI();
+        };
+
+        window.updateMainFile = async function(index, value) {
+            playlist[index].main_file = value;
+            playlist[index].file = value;
+            if (isVideoFile(value)) {
+                playlist[index].duration = 10;
+                renderUI();
+                try {
+                    const dur = await getVideoDuration(value);
+                    playlist[index].duration = dur;
+                    renderUI();
+                } catch(e) {}
+            } else {
+                playlist[index].duration = 12;
+                renderUI();
+            }
+        };
+
+        window.updateSidebarFile = function(index, value) {
+            playlist[index].sidebar_file = value || "";
+        };
+
+        window.updateTickerText = function(index, value) {
+            playlist[index].ticker_text = value;
+        };
+
+        window.updateZoom = function(index, value) {
+            playlist[index].zoom = parseInt(value) || 100;
+        };
+
+        window.updateSidebarZoom = function(index, value) {
+            playlist[index].sidebar_zoom = parseInt(value) || 100;
+        };
+
         window.updateDuration = function(index, value) {
             playlist[index].duration = parseInt(value) || 12;
         };

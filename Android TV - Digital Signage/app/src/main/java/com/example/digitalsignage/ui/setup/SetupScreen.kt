@@ -28,9 +28,9 @@ import kotlinx.coroutines.withContext
 @Composable
 fun SetupScreen(onSetupComplete: (String, String, String, String) -> Unit) {
     var ip by remember { mutableStateOf("192.168.0.10") }
-    var share by remember { mutableStateOf("recursos Varios") }
+    var share by remember { mutableStateOf("compartido") }
     var user by remember { mutableStateOf("ePC") }
-    var pass by remember { mutableStateOf("epcucb2015") }
+    var pass by remember { mutableStateOf("3000:1*2-3000:1") }
 
     var isConnecting by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf("") }

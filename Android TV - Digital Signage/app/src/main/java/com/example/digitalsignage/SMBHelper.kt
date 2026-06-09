@@ -17,16 +17,27 @@ import java.util.EnumSet
 
 @Serializable
 data class PlaylistItem(
-    val file: String,
+    val layout: String? = null,
+    val file: String? = null,
+    val main_file: String? = null,
+    val sidebar_file: String? = null,
+    val ticker_text: String? = null,
     val duration: Int? = null,
     val schedule: String? = null,
-    val days: String? = null
+    val days: String? = null,
+    val zoom: Int? = null,
+    val sidebar_zoom: Int? = null
 )
 
 data class ActivePlaylistItem(
-    val file: File,
+    val layout: String,
+    val mainFile: File?,
+    val sidebarFile: File?,
+    val tickerText: String,
     val durationSeconds: Int,
-    val isVideo: Boolean
+    val isVideo: Boolean,
+    val zoomPercent: Int,
+    val sidebarZoomPercent: Int
 )
 
 object SMBHelper {
@@ -123,7 +134,9 @@ object SMBHelper {
                     }.map { fileInfo ->
                         val isVideo = isVideoFile(fileInfo.fileName)
                         PlaylistItem(
+                            layout = "fullscreen",
                             file = fileInfo.fileName,
+                            main_file = fileInfo.fileName,
                             duration = if (isVideo) null else 12,
                             schedule = null,
                             days = null
@@ -146,11 +159,23 @@ object SMBHelper {
                     throw Exception("Lista de reproducción vacía: No se encontró playlist.json ni archivos multimedia en la carpeta raíz.")
                 }
 
-                // Parse playlist.json
+                // Sanitize the content (remove BOM, leading/trailing whitespace)
+                var sanitizedContent = playlistContent.trim()
+                if (sanitizedContent.startsWith("\uFEFF")) {
+                    sanitizedContent = sanitizedContent.substring(1).trim()
+                }
+
+                // Parse playlist.json with a lenient configuration
+                val leniencyJson = Json {
+                    ignoreUnknownKeys = true
+                    coerceInputValues = true
+                    explicitNulls = true
+                }
                 val items = try {
-                    Json.decodeFromString<List<PlaylistItem>>(playlistContent)
+                    leniencyJson.decodeFromString<List<PlaylistItem>>(sanitizedContent)
                 } catch (e: Exception) {
-                    throw Exception("Error de lectura: El archivo playlist.json tiene un formato incorrecto. Detalle: ${e.message}", e)
+                    val preview = if (sanitizedContent.length > 100) sanitizedContent.take(100) + "..." else sanitizedContent
+                    throw Exception("Error de lectura: El archivo playlist.json tiene un formato incorrecto. Detalle: ${e.message}. Inicio del archivo: '$preview'", e)
                 }
 
                 // Filter active items based on schedule and day of the week
@@ -171,47 +196,75 @@ object SMBHelper {
                     throw Exception("Error al leer la lista de archivos del servidor.", e)
                 }
 
-                val remoteFileMap = files.associateBy { it.fileName }
+                // Use case-insensitive mapping for filenames
+                val remoteFileMap = files.associateBy { it.fileName.lowercase() }
                 val localFiles = mutableListOf<ActivePlaylistItem>()
-                val activeNames = activeItems.map { it.file }.toSet()
+                val activeNamesLower = mutableSetOf<String>()
 
-                activeItems.forEachIndexed { index, item ->
-                    val remoteFileName = item.file
-                    val fileInfo = remoteFileMap[remoteFileName]
+                fun getOrDownloadFile(fileName: String?, itemIndex: Int, totalItems: Int): File? {
+                    if (fileName.isNullOrEmpty()) return null
+                    val fileInfo = remoteFileMap[fileName.lowercase()]
+                    if (fileInfo == null) {
+                        Log.w(TAG, "El archivo listado no existe en el servidor: $fileName")
+                        return null
+                    }
+                    val exactRemoteFileName = fileInfo.fileName
+                    activeNamesLower.add(exactRemoteFileName.lowercase())
+                    val localFile = File(cacheDir, exactRemoteFileName)
+                    val remoteFileSize = fileInfo.endOfFile
 
-                    if (fileInfo != null) {
-                        val remoteFileSize = fileInfo.endOfFile
-                        val relativeFilePath = remoteFileName
-                        val localFile = File(cacheDir, remoteFileName)
-                        val isVideo = isVideoFile(remoteFileName)
-                        val duration = item.duration ?: 12
+                    if (localFile.exists() && localFile.length() == remoteFileSize) {
+                        return localFile
+                    }
 
-                        if (localFile.exists() && localFile.length() == remoteFileSize) {
-                            localFiles.add(ActivePlaylistItem(localFile, duration, isVideo))
-                        } else {
-                            onStatusUpdate("Descargando [${index + 1}/${activeItems.size}]: '$remoteFileName'...")
-                            try {
-                                share.openFile(
-                                    relativeFilePath,
-                                    EnumSet.of(AccessMask.GENERIC_READ),
-                                    null,
-                                    EnumSet.of(SMB2ShareAccess.FILE_SHARE_READ, SMB2ShareAccess.FILE_SHARE_WRITE),
-                                    SMB2CreateDisposition.FILE_OPEN,
-                                    null
-                                ).use { smbFile ->
-                                    smbFile.inputStream.use { input ->
-                                        FileOutputStream(localFile).use { output ->
-                                            input.copyTo(output)
-                                        }
-                                    }
+                    onStatusUpdate("Descargando [${itemIndex + 1}/$totalItems]: '$exactRemoteFileName'...")
+                    try {
+                        share.openFile(
+                            exactRemoteFileName,
+                            EnumSet.of(AccessMask.GENERIC_READ),
+                            null,
+                            EnumSet.of(SMB2ShareAccess.FILE_SHARE_READ, SMB2ShareAccess.FILE_SHARE_WRITE),
+                            SMB2CreateDisposition.FILE_OPEN,
+                            null
+                        ).use { smbFile ->
+                            smbFile.inputStream.use { input ->
+                                FileOutputStream(localFile).use { output ->
+                                    input.copyTo(output)
                                 }
-                                localFiles.add(ActivePlaylistItem(localFile, duration, isVideo))
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Error downloading $remoteFileName", e)
                             }
                         }
-                    } else {
-                        Log.w(TAG, "File listed in playlist.json does not exist on share: $remoteFileName")
+                        return localFile
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error descargando $exactRemoteFileName", e)
+                        return null
+                    }
+                }
+
+                activeItems.forEachIndexed { index, item ->
+                    val layout = item.layout ?: "fullscreen"
+                    val mainFileName = item.main_file ?: item.file
+                    val sidebarFileName = item.sidebar_file
+                    val tickerText = item.ticker_text ?: ""
+                    val duration = item.duration ?: 12
+
+                    val mainFile = getOrDownloadFile(mainFileName, index, activeItems.size)
+                    val sidebarFile = getOrDownloadFile(sidebarFileName, index, activeItems.size)
+                    
+                    val isVideo = mainFileName?.let { isVideoFile(it) } ?: false
+
+                    if (mainFile != null || mainFileName == null) {
+                        localFiles.add(
+                            ActivePlaylistItem(
+                                layout = layout,
+                                mainFile = mainFile,
+                                sidebarFile = sidebarFile,
+                                tickerText = tickerText,
+                                durationSeconds = duration,
+                                isVideo = isVideo,
+                                zoomPercent = item.zoom ?: 100,
+                                sidebarZoomPercent = item.sidebar_zoom ?: 100
+                            )
+                        )
                     }
                 }
 
@@ -219,9 +272,10 @@ object SMBHelper {
                     throw Exception("Error de descarga: No se pudo descargar ninguno de los archivos de la lista.")
                 }
 
-                // Delete local files no longer in active playlist
+                // Delete local files no longer in active playlist (case-insensitive)
                 cacheDir.listFiles()?.forEach { localFile ->
-                    if (localFile.name !in activeNames && localFile.name != "playlist.json") {
+                    val localNameLower = localFile.name.lowercase()
+                    if (localNameLower !in activeNamesLower && localFile.name != "playlist.json") {
                         try {
                             localFile.delete()
                             Log.d(TAG, "Deleted old cached file: ${localFile.name}")
@@ -346,8 +400,17 @@ object SMBHelper {
                     name.endsWith(".mkv", ignoreCase = true) ||
                     name.endsWith(".avi", ignoreCase = true)
         } ?: emptyList()).map {
-            ActivePlaylistItem(it, 12, isVideoFile(it.name))
-        }.sortedBy { it.file.name }
+            ActivePlaylistItem(
+                layout = "fullscreen",
+                mainFile = it,
+                sidebarFile = null,
+                tickerText = "",
+                durationSeconds = 12,
+                isVideo = isVideoFile(it.name),
+                zoomPercent = 100,
+                sidebarZoomPercent = 100
+            )
+        }.sortedBy { it.mainFile?.name ?: "" }
     }
 
     private fun isVideoFile(name: String): Boolean {
