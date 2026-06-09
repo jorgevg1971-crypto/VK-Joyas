@@ -13,6 +13,12 @@ export const settings = defineType({
       validation: (rule) => rule.required().regex(/^\+?[1-9]\d{1,14}$/).error('Por favor ingresa un formato de número válido (ej. +59175873118)'),
     }),
     defineField({
+      name: 'whatsappButtonText',
+      title: 'Texto del Botón de WhatsApp',
+      type: 'localeString',
+      description: 'Texto personalizado para el botón de WhatsApp. Si se deja vacío, se usará "Pedir por WhatsApp" (o "Order via WhatsApp" en inglés).',
+    }),
+    defineField({
       name: 'heroImage',
       title: 'Imagen de Portada (Hero)',
       type: 'image',
