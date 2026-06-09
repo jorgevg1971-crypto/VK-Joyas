@@ -449,6 +449,27 @@ a {
     width: 100%;
 }
 
+/* Desktop / PC Specific Sizing for Larger Photo Display */
+@media (min-width: 1025px) {
+    .modal-content {
+        max-width: 1250px;
+        max-height: 90vh;
+    }
+    
+    .modal-layout {
+        grid-template-columns: 1.5fr 1fr;
+    }
+
+    .modal-image-container-zoom {
+        height: 82vh;
+    }
+
+    .modal-info-side {
+        height: 82vh;
+        padding: 3rem;
+    }
+}
+
 /* Footer */
 footer {
     text-align: center;
