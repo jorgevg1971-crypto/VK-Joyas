@@ -25,12 +25,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+import androidx.compose.ui.platform.LocalContext
+
 @Composable
 fun SetupScreen(onSetupComplete: (String, String, String, String) -> Unit) {
-    var ip by remember { mutableStateOf("192.168.1.204") }
-    var share by remember { mutableStateOf("Compartido") }
-    var user by remember { mutableStateOf("Jorge") }
-    var pass by remember { mutableStateOf("3000:1*2-3000:1") }
+    var ip by remember { mutableStateOf("192.168.0.10") }
+    var share by remember { mutableStateOf("compartido") }
+    var user by remember { mutableStateOf("ePC") }
+    var pass by remember { mutableStateOf("epcucb2015") }
 
     var isConnecting by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf("") }
@@ -38,6 +40,15 @@ fun SetupScreen(onSetupComplete: (String, String, String, String) -> Unit) {
 
     val scope = rememberCoroutineScope()
     val ipFocusRequester = remember { FocusRequester() }
+    val context = LocalContext.current
+    val versionName = remember {
+        try {
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            packageInfo.versionName ?: "1.99"
+        } catch (e: Exception) {
+            "1.99"
+        }
+    }
 
     LaunchedEffect(Unit) {
         ipFocusRequester.requestFocus()
@@ -64,7 +75,7 @@ fun SetupScreen(onSetupComplete: (String, String, String, String) -> Unit) {
                 modifier = Modifier.padding(bottom = 2.dp)
             )
             Text(
-                text = "Versión 1.98",
+                text = "Versión $versionName",
                 fontSize = 14.sp,
                 color = Color(0xFFE50914),
                 fontWeight = FontWeight.SemiBold,

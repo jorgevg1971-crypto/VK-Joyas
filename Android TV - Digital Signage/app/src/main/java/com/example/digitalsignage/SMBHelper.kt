@@ -27,7 +27,14 @@ data class PowerSchedule(
 @Serializable
 data class PlaylistRoot(
     val power_schedule: PowerSchedule? = null,
+    val app_update: AppUpdate? = null,
     val items: List<PlaylistItem> = emptyList()
+)
+
+@Serializable
+data class AppUpdate(
+    val version_name: String? = null,
+    val apk_file: String? = null
 )
 
 @Serializable
@@ -189,10 +196,12 @@ object SMBHelper {
                     explicitNulls = true
                 }
                 var powerSchedule: PowerSchedule? = null
+                var appUpdate: AppUpdate? = null
                 val items = try {
                     if (sanitizedContent.startsWith("{")) {
                         val root = leniencyJson.decodeFromString<PlaylistRoot>(sanitizedContent)
                         powerSchedule = root.power_schedule
+                        appUpdate = root.app_update
                         root.items
                     } else {
                         leniencyJson.decodeFromString<List<PlaylistItem>>(sanitizedContent)
@@ -200,6 +209,67 @@ object SMBHelper {
                 } catch (e: Exception) {
                     val preview = if (sanitizedContent.length > 100) sanitizedContent.take(100) + "..." else sanitizedContent
                     throw Exception("Error de lectura: El archivo playlist.json tiene un formato incorrecto. Detalle: ${e.message}. Inicio del archivo: '$preview'", e)
+                }
+
+                // Check directory files on the server to cross-reference sizes
+                val files = try {
+                    share.list("")
+                } catch (e: Exception) {
+                    throw Exception("Error al leer la lista de archivos del servidor.", e)
+                }
+
+                // Use case-insensitive mapping for filenames
+                val remoteFileMap = files.associateBy { it.fileName.lowercase() }
+
+                // Check for app updates (or downgrades)
+                appUpdate?.let { update ->
+                    val remoteVersionName = update.version_name
+                    val apkFileName = update.apk_file
+                    if (!remoteVersionName.isNullOrEmpty() && !apkFileName.isNullOrEmpty()) {
+                        val currentVersionName = try {
+                            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+                            packageInfo.versionName ?: ""
+                        } catch (e: Exception) {
+                            ""
+                        }
+
+                        if (remoteVersionName != currentVersionName) {
+                            onStatusUpdate("Actualización detectada: $remoteVersionName (Actual: $currentVersionName)...")
+                            Log.d(TAG, "App version mismatch: Remote=$remoteVersionName, Local=$currentVersionName. Downloading update...")
+
+                            val exactApkName = remoteFileMap[apkFileName.lowercase()]?.fileName ?: apkFileName
+                            val localApkFile = File(cacheDir, "update_temp.apk")
+
+                            onStatusUpdate("Descargando APK: $exactApkName...")
+                            try {
+                                share.openFile(
+                                    exactApkName,
+                                    EnumSet.of(AccessMask.GENERIC_READ),
+                                    null,
+                                    EnumSet.of(SMB2ShareAccess.FILE_SHARE_READ, SMB2ShareAccess.FILE_SHARE_WRITE),
+                                    SMB2CreateDisposition.FILE_OPEN,
+                                    null
+                                ).use { smbFile ->
+                                    smbFile.inputStream.use { input ->
+                                        FileOutputStream(localApkFile).use { output ->
+                                            input.copyTo(output)
+                                        }
+                                    }
+                                }
+
+                                onStatusUpdate("Abriendo instalador de versión $remoteVersionName...")
+                                val authority = "${context.packageName}.fileprovider"
+                                val uri = androidx.core.content.FileProvider.getUriForFile(context, authority, localApkFile)
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                    setDataAndType(uri, "application/vnd.android.package-archive")
+                                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Failed to download or install update APK", e)
+                            }
+                        }
+                    }
                 }
 
                 // Sync power schedule alarms
@@ -217,15 +287,6 @@ object SMBHelper {
                     throw Exception("Sin elementos activos: Ninguno de los elementos en playlist.json coincide con el horario y día actual.")
                 }
 
-                // Check directory files on the server to cross-reference sizes
-                val files = try {
-                    share.list("")
-                } catch (e: Exception) {
-                    throw Exception("Error al leer la lista de archivos del servidor.", e)
-                }
-
-                // Use case-insensitive mapping for filenames
-                val remoteFileMap = files.associateBy { it.fileName.lowercase() }
                 val localFiles = mutableListOf<ActivePlaylistItem>()
                 val activeNamesLower = mutableSetOf<String>()
 
