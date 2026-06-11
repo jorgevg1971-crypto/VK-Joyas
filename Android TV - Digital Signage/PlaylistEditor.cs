@@ -32,7 +32,20 @@ namespace PlaylistEditorApp
         public PowerSchedule power_schedule { get; set; }
 
         [DataMember(Order = 2, EmitDefaultValue = true)]
+        public AppUpdate app_update { get; set; }
+
+        [DataMember(Order = 3, EmitDefaultValue = true)]
         public List<PlaylistItem> items { get; set; }
+    }
+
+    [DataContract]
+    public class AppUpdate
+    {
+        [DataMember(Order = 1, EmitDefaultValue = true)]
+        public string version_name { get; set; }
+
+        [DataMember(Order = 2, EmitDefaultValue = true)]
+        public string apk_file { get; set; }
     }
 
     [DataContract]
@@ -88,8 +101,12 @@ namespace PlaylistEditorApp
         private Label lblTvDaysShow;
         private string tvDays = "lun,mar,mie,jue,vie,sab,dom";
 
+        private CheckBox chkUpdateEnabled;
+        private TextBox txtUpdateVersion;
+        private ComboBox cbUpdateApk;
+
         private string currentDir;
-        private readonly string[] supportedExtensions = new string[] { ".png", ".jpg", ".jpeg", ".webp", ".mp4", ".mkv", ".avi" };
+        private readonly string[] supportedExtensions = new string[] { ".png", ".jpg", ".jpeg", ".webp", ".mp4", ".mkv", ".avi", ".apk" };
         private List<string> diskFiles = new List<string>();
 
         public PlaylistForm()
@@ -273,8 +290,76 @@ namespace PlaylistEditorApp
             pnlTv.Controls.Add(pnlTvInputs);
             pnlLeft.Controls.Add(pnlTv);
 
+            Panel pnlUpdate = new Panel();
+            pnlUpdate.Dock = DockStyle.Bottom;
+            pnlUpdate.Height = 130;
+            pnlUpdate.BackColor = Color.FromArgb(28, 28, 34);
+            pnlUpdate.Padding = new Padding(10);
+            pnlUpdate.Margin = new Padding(0, 10, 0, 0);
+
+            Label lblUpdateTitle = new Label();
+            lblUpdateTitle.Text = "🚀 Actualización de App";
+            lblUpdateTitle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+            lblUpdateTitle.ForeColor = Color.FromArgb(0, 176, 255);
+            lblUpdateTitle.Location = new Point(10, 8);
+            lblUpdateTitle.Size = new Size(220, 20);
+            pnlUpdate.Controls.Add(lblUpdateTitle);
+
+            chkUpdateEnabled = new CheckBox();
+            chkUpdateEnabled.Text = "Habilitar Actualización";
+            chkUpdateEnabled.Location = new Point(10, 32);
+            chkUpdateEnabled.Size = new Size(220, 24);
+            chkUpdateEnabled.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+
+            Panel pnlUpdateInputs = new Panel();
+            pnlUpdateInputs.Location = new Point(10, 60);
+            pnlUpdateInputs.Size = new Size(230, 65);
+
+            Label lblVer = new Label();
+            lblVer.Text = "Versión:";
+            lblVer.Location = new Point(0, 5);
+            lblVer.Size = new Size(80, 20);
+            lblVer.Font = new Font("Segoe UI", 9F);
+            lblVer.ForeColor = Color.FromArgb(180, 180, 190);
+            pnlUpdateInputs.Controls.Add(lblVer);
+
+            txtUpdateVersion = new TextBox();
+            txtUpdateVersion.Text = "1.99";
+            txtUpdateVersion.Location = new Point(90, 2);
+            txtUpdateVersion.Size = new Size(130, 25);
+            txtUpdateVersion.BackColor = Color.FromArgb(32, 32, 38);
+            txtUpdateVersion.ForeColor = Color.White;
+            txtUpdateVersion.BorderStyle = BorderStyle.FixedSingle;
+            pnlUpdateInputs.Controls.Add(txtUpdateVersion);
+
+            Label lblApkFile = new Label();
+            lblApkFile.Text = "Archivo APK:";
+            lblApkFile.Location = new Point(0, 35);
+            lblApkFile.Size = new Size(80, 20);
+            lblApkFile.Font = new Font("Segoe UI", 9F);
+            lblApkFile.ForeColor = Color.FromArgb(180, 180, 190);
+            pnlUpdateInputs.Controls.Add(lblApkFile);
+
+            cbUpdateApk = new ComboBox();
+            cbUpdateApk.Location = new Point(90, 32);
+            cbUpdateApk.Size = new Size(130, 25);
+            cbUpdateApk.BackColor = Color.FromArgb(32, 32, 38);
+            cbUpdateApk.ForeColor = Color.White;
+            cbUpdateApk.FlatStyle = FlatStyle.Flat;
+            pnlUpdateInputs.Controls.Add(cbUpdateApk);
+
+            chkUpdateEnabled.CheckedChanged += (s, ev) => {
+                pnlUpdateInputs.Enabled = chkUpdateEnabled.Checked;
+            };
+            pnlUpdateInputs.Enabled = false;
+
+            pnlUpdate.Controls.Add(chkUpdateEnabled);
+            pnlUpdate.Controls.Add(pnlUpdateInputs);
+            pnlLeft.Controls.Add(pnlUpdate);
+
             lblDisk.SendToBack();
             pnlTv.SendToBack();
+            pnlUpdate.SendToBack();
             btnAdd.SendToBack();
             lbDiskFiles.BringToFront();
 
@@ -462,7 +547,10 @@ namespace PlaylistEditorApp
                     {
                         string name = Path.GetFileName(file);
                         diskFiles.Add(name);
-                        lbDiskFiles.Items.Add(name);
+                        if (ext != ".apk")
+                        {
+                            lbDiskFiles.Items.Add(name);
+                        }
                     }
                 }
             }
@@ -470,7 +558,13 @@ namespace PlaylistEditorApp
             DataGridViewComboBoxColumn colMain = (DataGridViewComboBoxColumn)dgvPlaylist.Columns["colMainFile"];
             colMain.Items.Clear();
             colMain.Items.Add("");
-            foreach (string f in diskFiles) colMain.Items.Add(f);
+            foreach (string f in diskFiles)
+            {
+                if (!f.EndsWith(".apk", StringComparison.OrdinalIgnoreCase))
+                {
+                    colMain.Items.Add(f);
+                }
+            }
 
             DataGridViewComboBoxColumn colSidebar = (DataGridViewComboBoxColumn)dgvPlaylist.Columns["colSidebarFile"];
             colSidebar.Items.Clear();
@@ -478,11 +572,24 @@ namespace PlaylistEditorApp
             foreach (string f in diskFiles)
             {
                 string ext = Path.GetExtension(f).ToLower();
-                if (ext != ".mp4" && ext != ".mkv" && ext != ".avi")
+                if (ext != ".mp4" && ext != ".mkv" && ext != ".avi" && ext != ".apk")
                 {
                     colSidebar.Items.Add(f);
                 }
             }
+
+            // Populate APK ComboBox
+            cbUpdateApk.Items.Clear();
+            cbUpdateApk.Items.Add("VK_Signage_TV_Player.apk");
+            foreach (string f in diskFiles)
+            {
+                if (f.EndsWith(".apk", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!cbUpdateApk.Items.Contains(f))
+                        cbUpdateApk.Items.Add(f);
+                }
+            }
+            if (cbUpdateApk.Items.Count > 0) cbUpdateApk.SelectedIndex = 0;
         }
 
         private void LoadPlaylistJson()
@@ -511,6 +618,20 @@ namespace PlaylistEditorApp
                         txtTvOffTime.Text = "20:00";
                         tvDays = "lun,mar,mie,jue,vie,sab,dom";
                         lblTvDaysShow.Text = tvDays;
+                    }
+
+                    if (root.app_update != null)
+                    {
+                        chkUpdateEnabled.Checked = true;
+                        txtUpdateVersion.Text = root.app_update.version_name ?? "1.99";
+                        string apk = root.app_update.apk_file ?? "VK_Signage_TV_Player.apk";
+                        if (!cbUpdateApk.Items.Contains(apk)) cbUpdateApk.Items.Add(apk);
+                        cbUpdateApk.SelectedItem = apk;
+                    }
+                    else
+                    {
+                        chkUpdateEnabled.Checked = false;
+                        txtUpdateVersion.Text = "1.99";
                     }
 
                     List<PlaylistItem> list = root.items ?? new List<PlaylistItem>();
@@ -761,6 +882,14 @@ namespace PlaylistEditorApp
                 off_time = txtTvOffTime.Text,
                 days = tvDays
             };
+            if (chkUpdateEnabled.Checked)
+            {
+                root.app_update = new AppUpdate
+                {
+                    version_name = txtUpdateVersion.Text,
+                    apk_file = cbUpdateApk.Text
+                };
+            }
             root.items = list;
 
             try
@@ -785,6 +914,7 @@ namespace PlaylistEditorApp
                 return rawJson.Replace("},\"", "},\n  \"")
                               .Replace(",\"items\":", ",\n  \"items\":")
                               .Replace(",\"power_schedule\":", ",\n  \"power_schedule\":")
+                              .Replace(",\"app_update\":", ",\n  \"app_update\":")
                               .Replace("},{", "},\n    {")
                               .Replace("[{", "[\n    {")
                               .Replace("}]", "}\n  ]");

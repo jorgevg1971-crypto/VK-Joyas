@@ -482,6 +482,30 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Actualización de la App -->
+            <div class="card" id="appUpdateCard" style="display: none;">
+                <div class="card-title">
+                    🚀 Actualización de App
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600;">
+                        <input type="checkbox" id="chkUpdateEnabled" onchange="toggleAppUpdate(this.checked)"> Habilitar Actualizaciones
+                    </label>
+                    <div id="appUpdateForm" style="display: none; flex-direction: column; gap: 10px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span>Versión de App (ej: 1.99):</span>
+                            <input type="text" id="txtAppVersion" onchange="updateAppUpdateField()" style="width: 100px;">
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span>Archivo APK:</span>
+                            <select id="selAppApk" onchange="updateAppUpdateField()" style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); color: var(--text-color); padding: 8px; border-radius: 8px; font-family: inherit; font-size: 13px; width: 140px; outline: none; border-color: rgba(255,255,255,0.08);">
+                                <!-- Dinámico -->
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
             
             <!-- Info del Programa -->
             <div class="card" style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
@@ -547,8 +571,13 @@
             off_time: "20:00",
             days: "lun,mar,mie,jue,vie,sab,dom"
         };
+        let appUpdate = {
+            enabled: false,
+            version_name: "1.99",
+            apk_file: "VK_Signage_TV_Player.apk"
+        };
         
-        const supportedExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.mp4', '.mkv', '.avi'];
+        const supportedExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.mp4', '.mkv', '.avi', '.apk'];
         const dayMappings = [
             { id: 'lun', label: 'Lu' },
             { id: 'mar', label: 'Ma' },
@@ -615,8 +644,26 @@
                     if (data.power_schedule) {
                         powerSchedule = { ...powerSchedule, ...data.power_schedule };
                     }
+                    if (data.app_update) {
+                        appUpdate = {
+                            enabled: true,
+                            version_name: data.app_update.version_name || "1.99",
+                            apk_file: data.app_update.apk_file || "VK_Signage_TV_Player.apk"
+                        };
+                    } else {
+                        appUpdate = {
+                            enabled: false,
+                            version_name: "1.99",
+                            apk_file: "VK_Signage_TV_Player.apk"
+                        };
+                    }
                 } else if (Array.isArray(data)) {
                     playlist = data;
+                    appUpdate = {
+                        enabled: false,
+                        version_name: "1.99",
+                        apk_file: "VK_Signage_TV_Player.apk"
+                    };
                 }
 
                 // Ensure all fields are initialized
@@ -681,11 +728,48 @@
                 tvScheduleCard.style.display = 'none';
             }
 
+            // Render TV App Update inputs
+            const appUpdateCard = document.getElementById('appUpdateCard');
+            if (dirHandle) {
+                appUpdateCard.style.display = 'block';
+                document.getElementById('chkUpdateEnabled').checked = appUpdate.enabled;
+                document.getElementById('appUpdateForm').style.display = appUpdate.enabled ? 'flex' : 'none';
+                document.getElementById('txtAppVersion').value = appUpdate.version_name || "1.99";
+                
+                const selAppApk = document.getElementById('selAppApk');
+                selAppApk.innerHTML = '';
+                const apks = filesInDir.filter(f => f.toLowerCase().endsWith('.apk'));
+                if (apks.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.value = appUpdate.apk_file || "VK_Signage_TV_Player.apk";
+                    opt.innerText = appUpdate.apk_file || "VK_Signage_TV_Player.apk";
+                    selAppApk.appendChild(opt);
+                } else {
+                    apks.forEach(apk => {
+                        const opt = document.createElement('option');
+                        opt.value = apk;
+                        opt.innerText = apk;
+                        if (apk === appUpdate.apk_file) opt.selected = true;
+                        selAppApk.appendChild(opt);
+                    });
+                    if (!apks.includes(appUpdate.apk_file) && appUpdate.apk_file) {
+                        const opt = document.createElement('option');
+                        opt.value = appUpdate.apk_file;
+                        opt.innerText = appUpdate.apk_file;
+                        opt.selected = true;
+                        selAppApk.appendChild(opt);
+                    }
+                }
+            } else {
+                appUpdateCard.style.display = 'none';
+            }
+
             // Render files list on sidebar
             const mediaList = document.getElementById('mediaFilesList');
             mediaList.innerHTML = '';
             
             filesInDir.forEach(name => {
+                if (name.toLowerCase().endsWith('.apk')) return;
                 const isItemInPlaylist = playlist.some(p => (p.main_file || p.file) === name);
                 const li = document.createElement('li');
                 li.className = 'file-item';
@@ -989,6 +1073,16 @@
             renderUI();
         };
 
+        window.toggleAppUpdate = function(enabled) {
+            appUpdate.enabled = enabled;
+            renderUI();
+        };
+
+        window.updateAppUpdateField = function() {
+            appUpdate.version_name = document.getElementById('txtAppVersion').value;
+            appUpdate.apk_file = document.getElementById('selAppApk').value;
+        };
+
         window.moveItem = function(index, direction) {
             const targetIndex = index + direction;
             if (targetIndex >= 0 && targetIndex < playlist.length) {
@@ -1014,6 +1108,10 @@
                 // Format the JSON nicely
                 const outputData = {
                     power_schedule: powerSchedule.enabled ? powerSchedule : null,
+                    app_update: appUpdate.enabled ? {
+                        version_name: appUpdate.version_name,
+                        apk_file: appUpdate.apk_file
+                    } : null,
                     items: playlist
                 };
                 const playlistJson = JSON.stringify(outputData, null, 2);
