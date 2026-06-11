@@ -80,6 +80,24 @@ namespace PlaylistEditorApp
 
         [DataMember(Order = 10, EmitDefaultValue = true)]
         public int? sidebar_zoom { get; set; }
+
+        [DataMember(Order = 11, EmitDefaultValue = false)]
+        public string sidebar_text { get; set; }
+
+        [DataMember(Order = 12, EmitDefaultValue = false)]
+        public int? sidebar_text_size { get; set; }
+
+        [DataMember(Order = 13, EmitDefaultValue = false)]
+        public string sidebar_text_font { get; set; }
+
+        [DataMember(Order = 14, EmitDefaultValue = false)]
+        public bool? sidebar_text_bold { get; set; }
+
+        [DataMember(Order = 15, EmitDefaultValue = false)]
+        public bool? sidebar_text_underline { get; set; }
+
+        [DataMember(Order = 16, EmitDefaultValue = false)]
+        public string sidebar_text_align { get; set; }
     }
 
     public class PlaylistForm : Form
@@ -92,6 +110,7 @@ namespace PlaylistEditorApp
         private Button btnMoveDown;
         private Button btnSave;
         private Button btnRefresh;
+        private Button btnSidebarText;
         private Label lblPath;
 
         private CheckBox chkTvEnabled;
@@ -423,6 +442,15 @@ namespace PlaylistEditorApp
             btnRemove.Click += new EventHandler(btnRemove_Click);
             pnlBottom.Controls.Add(btnRemove);
 
+            btnSidebarText = new Button();
+            btnSidebarText.Text = "📝 Texto Lateral";
+            btnSidebarText.Location = new Point(410, 10);
+            btnSidebarText.Size = new Size(150, 35);
+            btnSidebarText.FlatStyle = FlatStyle.Flat;
+            btnSidebarText.BackColor = Color.FromArgb(40, 40, 48);
+            btnSidebarText.Click += new EventHandler(btnSidebarText_Click);
+            pnlBottom.Controls.Add(btnSidebarText);
+
             pnlMain.Controls.Add(pnlBottom);
 
             this.Controls.Add(pnlMain);
@@ -653,6 +681,7 @@ namespace PlaylistEditorApp
                         row.Cells["colSidebarZoom"].Value = item.sidebar_zoom.HasValue ? item.sidebar_zoom.Value.ToString() : "100";
                         row.Cells["colSchedule"].Value = item.schedule ?? "";
                         row.Cells["colDays"].Value = item.days ?? "";
+                        row.Tag = item;
                     }
                 }
                 catch (Exception ex)
@@ -753,6 +782,25 @@ namespace PlaylistEditorApp
             int idx = dgvPlaylist.Rows.Add();
             DataGridViewRow row = dgvPlaylist.Rows[idx];
 
+            PlaylistItem item = new PlaylistItem
+            {
+                layout = "fullscreen",
+                main_file = fileVal,
+                file = fileVal,
+                sidebar_file = "",
+                ticker_text = "",
+                zoom = 100,
+                sidebar_zoom = 100,
+                schedule = "",
+                days = "",
+                sidebar_text = "",
+                sidebar_text_size = 24,
+                sidebar_text_font = "sans-serif",
+                sidebar_text_bold = false,
+                sidebar_text_underline = false,
+                sidebar_text_align = "center"
+            };
+
             row.Cells["colOrder"].Value = idx + 1;
             row.Cells["colLayout"].Value = "fullscreen";
             SetComboValue((DataGridViewComboBoxCell)row.Cells["colMainFile"], fileVal);
@@ -770,12 +818,15 @@ namespace PlaylistEditorApp
                 string fullPath = Path.Combine(currentDir, fileVal);
                 int seconds = GetVideoDuration(fullPath);
                 row.Cells["colDuration"].Value = seconds.ToString();
+                item.duration = seconds;
             }
             else
             {
                 row.Cells["colDuration"].Value = "12";
+                item.duration = 12;
             }
 
+            row.Tag = item;
             UpdateCellStates();
         }
 
@@ -842,7 +893,9 @@ namespace PlaylistEditorApp
             foreach (DataGridViewRow row in dgvPlaylist.Rows)
             {
                 if (row.IsNewRow) continue;
-                PlaylistItem item = new PlaylistItem();
+                PlaylistItem item = row.Tag as PlaylistItem;
+                if (item == null) item = new PlaylistItem();
+
                 item.layout = Convert.ToString(row.Cells["colLayout"].Value);
                 string mainF = Convert.ToString(row.Cells["colMainFile"].Value);
                 item.main_file = mainF;
@@ -901,6 +954,43 @@ namespace PlaylistEditorApp
             catch (Exception ex)
             {
                 MessageBox.Show("Error al guardar: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void btnSidebarText_Click(object sender, EventArgs e)
+        {
+            if (dgvPlaylist.CurrentRow == null)
+            {
+                MessageBox.Show("Por favor seleccione un elemento de la playlist primero.", "Información", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            int idx = dgvPlaylist.CurrentRow.Index;
+            DataGridViewRow row = dgvPlaylist.Rows[idx];
+
+            string layout = Convert.ToString(row.Cells["colLayout"].Value);
+            if (layout != "split_sidebar" && layout != "three_regions")
+            {
+                MessageBox.Show("El diseño seleccionado no tiene barra lateral.", "Advertencia", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            PlaylistItem item = row.Tag as PlaylistItem;
+            if (item == null)
+            {
+                item = new PlaylistItem();
+                row.Tag = item;
+            }
+
+            using (SidebarTextForm form = new SidebarTextForm(item))
+            {
+                if (form.ShowDialog(this) == DialogResult.OK)
+                {
+                    if (!string.IsNullOrEmpty(item.sidebar_text))
+                    {
+                        row.Cells["colSidebarFile"].Value = "";
+                        item.sidebar_file = "";
+                    }
+                }
             }
         }
 
@@ -1029,6 +1119,85 @@ namespace PlaylistEditorApp
             btnCancel.FlatStyle = FlatStyle.Flat;
             btnCancel.BackColor = Color.FromArgb(40, 40, 48);
             btnCancel.ForeColor = Color.White;
+            btnCancel.Click += (s, e) => {
+                this.DialogResult = DialogResult.Cancel;
+                this.Close();
+            };
+            this.Controls.Add(btnCancel);
+        }
+    }
+
+    public class SidebarTextForm : Form
+    {
+        private TextBox txtText;
+        private NumericUpDown nudSize;
+        private ComboBox cbFont;
+        private ComboBox cbAlign;
+        private CheckBox chkBold;
+        private CheckBox chkUnderline;
+        private Button btnOk;
+        private Button btnCancel;
+
+        public SidebarTextForm(PlaylistItem item)
+        {
+            this.Text = "Texto de Barra Lateral";
+            this.Size = new Size(350, 320);
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+            this.StartPosition = FormStartPosition.CenterParent;
+            this.BackColor = Color.FromArgb(24, 24, 28);
+            this.ForeColor = Color.White;
+            this.Font = new Font("Segoe UI", 9.5F);
+
+            Label lblText = new Label { Text = "Texto:", Location = new Point(20, 20), Size = new Size(80, 20), ForeColor = Color.FromArgb(180, 180, 190) };
+            this.Controls.Add(lblText);
+
+            txtText = new TextBox { Text = item.sidebar_text ?? "", Location = new Point(110, 18), Size = new Size(200, 25), BackColor = Color.FromArgb(32, 32, 38), ForeColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+            this.Controls.Add(txtText);
+
+            Label lblSize = new Label { Text = "Tamaño:", Location = new Point(20, 55), Size = new Size(80, 20), ForeColor = Color.FromArgb(180, 180, 190) };
+            this.Controls.Add(lblSize);
+
+            nudSize = new NumericUpDown { Value = item.sidebar_text_size ?? 24, Minimum = 8, Maximum = 120, Location = new Point(110, 53), Size = new Size(80, 25), BackColor = Color.FromArgb(32, 32, 38), ForeColor = Color.White };
+            this.Controls.Add(nudSize);
+
+            Label lblFont = new Label { Text = "Fuente:", Location = new Point(20, 90), Size = new Size(80, 20), ForeColor = Color.FromArgb(180, 180, 190) };
+            this.Controls.Add(lblFont);
+
+            cbFont = new ComboBox { Location = new Point(110, 88), Size = new Size(130, 25), BackColor = Color.FromArgb(32, 32, 38), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+            cbFont.Items.AddRange(new object[] { "sans-serif", "serif", "monospace", "cursive" });
+            cbFont.SelectedItem = !string.IsNullOrEmpty(item.sidebar_text_font) && cbFont.Items.Contains(item.sidebar_text_font) ? item.sidebar_text_font : "sans-serif";
+            this.Controls.Add(cbFont);
+
+            Label lblAlign = new Label { Text = "Alineación:", Location = new Point(20, 125), Size = new Size(80, 20), ForeColor = Color.FromArgb(180, 180, 190) };
+            this.Controls.Add(lblAlign);
+
+            cbAlign = new ComboBox { Location = new Point(110, 123), Size = new Size(130, 25), BackColor = Color.FromArgb(32, 32, 38), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+            cbAlign.Items.AddRange(new object[] { "center", "left", "right", "justify" });
+            cbAlign.SelectedItem = !string.IsNullOrEmpty(item.sidebar_text_align) && cbAlign.Items.Contains(item.sidebar_text_align) ? item.sidebar_text_align : "center";
+            this.Controls.Add(cbAlign);
+
+            chkBold = new CheckBox { Text = "Negritas", Location = new Point(110, 158), Size = new Size(90, 25), Checked = item.sidebar_text_bold ?? false };
+            this.Controls.Add(chkBold);
+
+            chkUnderline = new CheckBox { Text = "Subrayado", Location = new Point(210, 158), Size = new Size(100, 25), Checked = item.sidebar_text_underline ?? false };
+            this.Controls.Add(chkUnderline);
+
+            btnOk = new Button { Text = "Aceptar", Location = new Point(50, 215), Size = new Size(100, 35), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(10, 130, 80), ForeColor = Color.White };
+            btnOk.Click += (s, e) => {
+                item.sidebar_text = txtText.Text;
+                item.sidebar_text_size = (int)nudSize.Value;
+                item.sidebar_text_font = cbFont.Text;
+                item.sidebar_text_align = cbAlign.Text;
+                item.sidebar_text_bold = chkBold.Checked;
+                item.sidebar_text_underline = chkUnderline.Checked;
+                this.DialogResult = DialogResult.OK;
+                this.Close();
+            };
+            this.Controls.Add(btnOk);
+
+            btnCancel = new Button { Text = "Cancelar", Location = new Point(180, 215), Size = new Size(100, 35), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(40, 40, 48), ForeColor = Color.White };
             btnCancel.Click += (s, e) => {
                 this.DialogResult = DialogResult.Cancel;
                 this.Close();

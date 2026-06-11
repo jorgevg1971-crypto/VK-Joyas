@@ -675,6 +675,12 @@
                     if (!item.ticker_text) item.ticker_text = "";
                     if (item.zoom === undefined || item.zoom === null) item.zoom = 100;
                     if (item.sidebar_zoom === undefined || item.sidebar_zoom === null) item.sidebar_zoom = 100;
+                    if (item.sidebar_text === undefined || item.sidebar_text === null) item.sidebar_text = "";
+                    if (item.sidebar_text_size === undefined || item.sidebar_text_size === null) item.sidebar_text_size = 24;
+                    if (item.sidebar_text_font === undefined || item.sidebar_text_font === null) item.sidebar_text_font = "sans-serif";
+                    if (item.sidebar_text_bold === undefined || item.sidebar_text_bold === null) item.sidebar_text_bold = false;
+                    if (item.sidebar_text_underline === undefined || item.sidebar_text_underline === null) item.sidebar_text_underline = false;
+                    if (item.sidebar_text_align === undefined || item.sidebar_text_align === null) item.sidebar_text_align = "center";
                 });
             } catch (err) {
                 console.log("No existe playlist.json previo, se generará al guardar.");
@@ -897,6 +903,16 @@
                         }
                     });
                     const sidebarFileSelect = `<select onchange="updateSidebarFile(${index}, this.value)" ${hasSidebar ? '' : 'disabled'} style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); color: var(--text-color); padding: 8px; border-radius: 8px; font-family: inherit; font-size: 13px; width: 100%; outline: none; border-color: rgba(255,255,255,0.08); opacity: ${hasSidebar ? 1 : 0.4}">${sidebarFileOptions}</select>`;
+                    const hasSidebarText = !!item.sidebar_text;
+                    const sidebarCell = `
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            ${sidebarFileSelect}
+                            <button class="btn-icon" onclick="openSidebarTextModal(${index})" title="Editar Texto Lateral" 
+                                    style="height: 35px; width: 35px; flex-shrink: 0; font-size: 13px; opacity: ${hasSidebar ? 1 : 0.4}" ${hasSidebar ? '' : 'disabled'}>
+                                ${hasSidebarText ? '📝*' : '📝'}
+                            </button>
+                        </div>
+                    `;
 
                     // Ticker text input
                     const hasTicker = item.layout === 'split_ticker' || item.layout === 'three_regions';
@@ -909,7 +925,7 @@
                         <td style="font-weight: 600; color: var(--text-secondary); text-align: center;">${index + 1}</td>
                         <td>${layoutSelect}</td>
                         <td>${mainFileSelect}</td>
-                        <td>${sidebarFileSelect}</td>
+                        <td>${sidebarCell}</td>
                         <td>${tickerInput}</td>
                         <td>
                             <input type="number" min="1" max="9999" value="${item.duration !== null && item.duration !== undefined ? item.duration : (isVideo ? 10 : 12)}" 
@@ -1126,6 +1142,45 @@
             }
         }
 
+        let activeModalItemIndex = null;
+
+        window.openSidebarTextModal = function(index) {
+            activeModalItemIndex = index;
+            const item = playlist[index];
+            document.getElementById('modalSidebarText').value = item.sidebar_text || "";
+            document.getElementById('modalSidebarTextSize').value = item.sidebar_text_size || 24;
+            document.getElementById('modalSidebarTextFont').value = item.sidebar_text_font || "sans-serif";
+            document.getElementById('modalSidebarTextAlign').value = item.sidebar_text_align || "center";
+            document.getElementById('modalSidebarTextBold').checked = !!item.sidebar_text_bold;
+            document.getElementById('modalSidebarTextUnderline').checked = !!item.sidebar_text_underline;
+            
+            document.getElementById('sidebarTextModal').style.display = 'flex';
+        };
+
+        window.closeSidebarTextModal = function() {
+            document.getElementById('sidebarTextModal').style.display = 'none';
+            activeModalItemIndex = null;
+        };
+
+        window.saveSidebarTextModal = function() {
+            if (activeModalItemIndex !== null) {
+                const item = playlist[activeModalItemIndex];
+                item.sidebar_text = document.getElementById('modalSidebarText').value;
+                item.sidebar_text_size = parseInt(document.getElementById('modalSidebarTextSize').value) || 24;
+                item.sidebar_text_font = document.getElementById('modalSidebarTextFont').value;
+                item.sidebar_text_align = document.getElementById('modalSidebarTextAlign').value;
+                item.sidebar_text_bold = document.getElementById('modalSidebarTextBold').checked;
+                item.sidebar_text_underline = document.getElementById('modalSidebarTextUnderline').checked;
+                
+                if (item.sidebar_text) {
+                    item.sidebar_file = "";
+                }
+                
+                closeSidebarTextModal();
+                renderUI();
+            }
+        };
+
         function showToast(message) {
             const toast = document.getElementById('toast');
             document.getElementById('toastMessage').innerText = message;
@@ -1135,5 +1190,57 @@
             }, 3000);
         }
     </script>
+
+    <!-- Modal for Sidebar Text Styling -->
+    <div id="sidebarTextModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
+        <div class="card" style="width: 400px; padding: 24px; display: flex; flex-direction: column; gap: 16px; background-color: #16161d; border: 1px solid var(--border-color); border-radius: 16px;">
+            <div class="card-title" style="margin-bottom: 0; color: var(--text-color);">
+                📝 Configurar Texto Lateral
+            </div>
+            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">
+                Define un texto para mostrar en la barra lateral en lugar de una imagen.
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <span style="font-size: 12px; font-weight: 600;">Texto:</span>
+                    <input type="text" id="modalSidebarText" placeholder="Ingresa el texto aquí..." style="width: 100%; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); color: var(--text-color); padding: 8px; border-radius: 8px;">
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 12px; font-weight: 600;">Tamaño de Fuente (px):</span>
+                    <input type="number" id="modalSidebarTextSize" min="8" max="120" value="24" style="width: 80px; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); color: var(--text-color); padding: 8px; border-radius: 8px;">
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 12px; font-weight: 600;">Tipo de Fuente:</span>
+                    <select id="modalSidebarTextFont" style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); color: var(--text-color); padding: 8px; border-radius: 8px; width: 140px; outline: none; border-color: rgba(255,255,255,0.08);">
+                        <option value="sans-serif">Sans-Serif</option>
+                        <option value="serif">Serif</option>
+                        <option value="monospace">Monospace</option>
+                        <option value="cursive">Cursive</option>
+                    </select>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 12px; font-weight: 600;">Alineación:</span>
+                    <select id="modalSidebarTextAlign" style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); color: var(--text-color); padding: 8px; border-radius: 8px; width: 140px; outline: none; border-color: rgba(255,255,255,0.08);">
+                        <option value="center">Centrado</option>
+                        <option value="left">Izquierda</option>
+                        <option value="right">Derecha</option>
+                        <option value="justify">Justificado</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 20px; align-items: center;">
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="modalSidebarTextBold"> <b>Negritas</b>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="modalSidebarTextUnderline"> <u>Subrayado</u>
+                    </label>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px;">
+                <button class="btn btn-secondary" onclick="closeSidebarTextModal()">Cancelar</button>
+                <button class="btn" onclick="saveSidebarTextModal()" style="background-color: var(--accent-blue); box-shadow: 0 4px 15px rgba(0, 176, 255, 0.2);">Aceptar</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

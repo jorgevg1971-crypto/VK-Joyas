@@ -48,11 +48,16 @@ data class PlaylistItem(
     val schedule: String? = null,
     val days: String? = null,
     val zoom: Int? = null,
-    val sidebar_zoom: Int? = null
+    val sidebar_zoom: Int? = null,
+    val sidebar_text: String? = null,
+    val sidebar_text_size: Int? = null,
+    val sidebar_text_font: String? = null,
+    val sidebar_text_bold: Boolean? = null,
+    val sidebar_text_underline: Boolean? = null,
+    val sidebar_text_align: String? = null
 )
 
 data class ActivePlaylistItem(
-
     val layout: String,
     val mainFile: File?,
     val sidebarFile: File?,
@@ -60,7 +65,13 @@ data class ActivePlaylistItem(
     val durationSeconds: Int,
     val isVideo: Boolean,
     val zoomPercent: Int,
-    val sidebarZoomPercent: Int
+    val sidebarZoomPercent: Int,
+    val sidebarText: String,
+    val sidebarTextSize: Int,
+    val sidebarTextFont: String,
+    val sidebarTextBold: Boolean,
+    val sidebarTextUnderline: Boolean,
+    val sidebarTextAlign: String
 )
 
 object SMBHelper {
@@ -351,7 +362,13 @@ object SMBHelper {
                                 durationSeconds = duration,
                                 isVideo = isVideo,
                                 zoomPercent = item.zoom ?: 100,
-                                sidebarZoomPercent = item.sidebar_zoom ?: 100
+                                sidebarZoomPercent = item.sidebar_zoom ?: 100,
+                                sidebarText = item.sidebar_text ?: "",
+                                sidebarTextSize = item.sidebar_text_size ?: 24,
+                                sidebarTextFont = item.sidebar_text_font ?: "default",
+                                sidebarTextBold = item.sidebar_text_bold ?: false,
+                                sidebarTextUnderline = item.sidebar_text_underline ?: false,
+                                sidebarTextAlign = item.sidebar_text_align ?: "center"
                             )
                         )
                     }
@@ -480,7 +497,13 @@ object SMBHelper {
                                 durationSeconds = item.duration ?: 12,
                                 isVideo = isVideo,
                                 zoomPercent = item.zoom ?: 100,
-                                sidebarZoomPercent = item.sidebar_zoom ?: 100
+                                sidebarZoomPercent = item.sidebar_zoom ?: 100,
+                                sidebarText = item.sidebar_text ?: "",
+                                sidebarTextSize = item.sidebar_text_size ?: 24,
+                                sidebarTextFont = item.sidebar_text_font ?: "default",
+                                sidebarTextBold = item.sidebar_text_bold ?: false,
+                                sidebarTextUnderline = item.sidebar_text_underline ?: false,
+                                sidebarTextAlign = item.sidebar_text_align ?: "center"
                             )
                         )
                     }
@@ -603,7 +626,13 @@ object SMBHelper {
                 durationSeconds = 12,
                 isVideo = isVideoFile(it.name),
                 zoomPercent = 100,
-                sidebarZoomPercent = 100
+                sidebarZoomPercent = 100,
+                sidebarText = "",
+                sidebarTextSize = 24,
+                sidebarTextFont = "default",
+                sidebarTextBold = false,
+                sidebarTextUnderline = false,
+                sidebarTextAlign = "center"
             )
         }.sortedBy { it.mainFile?.name ?: "" }
     }

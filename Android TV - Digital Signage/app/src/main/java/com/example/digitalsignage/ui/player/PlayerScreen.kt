@@ -452,6 +452,26 @@ fun MainMediaView(
     }
 }
 
+private fun getFontFamilyByName(name: String): androidx.compose.ui.text.font.FontFamily {
+    return when (name.lowercase()) {
+        "sans-serif", "sans" -> androidx.compose.ui.text.font.FontFamily.SansSerif
+        "serif" -> androidx.compose.ui.text.font.FontFamily.Serif
+        "monospace", "mono" -> androidx.compose.ui.text.font.FontFamily.Monospace
+        "cursive" -> androidx.compose.ui.text.font.FontFamily.Cursive
+        else -> androidx.compose.ui.text.font.FontFamily.Default
+    }
+}
+
+private fun getTextAlignByName(name: String): androidx.compose.ui.text.style.TextAlign {
+    return when (name.lowercase()) {
+        "center" -> androidx.compose.ui.text.style.TextAlign.Center
+        "left", "start" -> androidx.compose.ui.text.style.TextAlign.Left
+        "right", "end" -> androidx.compose.ui.text.style.TextAlign.Right
+        "justify" -> androidx.compose.ui.text.style.TextAlign.Justify
+        else -> androidx.compose.ui.text.style.TextAlign.Center
+    }
+}
+
 @Composable
 fun SidebarView(
     activeItem: ActivePlaylistItem,
@@ -467,6 +487,31 @@ fun SidebarView(
             modifier = modifier.fillMaxSize().clipToBounds(),
             contentScale = getCustomScale(ContentScale.Crop, scale)
         )
+    } else if (activeItem.sidebarText.isNotEmpty()) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color(0xFF1E1E24))
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            val weight = if (activeItem.sidebarTextBold) FontWeight.Bold else FontWeight.Normal
+            val decoration = if (activeItem.sidebarTextUnderline) {
+                androidx.compose.ui.text.style.TextDecoration.Underline
+            } else {
+                androidx.compose.ui.text.style.TextDecoration.None
+            }
+            Text(
+                text = activeItem.sidebarText,
+                color = Color.White,
+                fontWeight = weight,
+                fontSize = activeItem.sidebarTextSize.sp,
+                fontFamily = getFontFamilyByName(activeItem.sidebarTextFont),
+                textAlign = getTextAlignByName(activeItem.sidebarTextAlign),
+                textDecoration = decoration,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     } else {
         Box(
             modifier = modifier
