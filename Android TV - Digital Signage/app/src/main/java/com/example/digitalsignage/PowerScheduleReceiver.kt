@@ -8,6 +8,7 @@ import android.util.Log
 import dadb.Dadb
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class PowerScheduleReceiver : BroadcastReceiver() {
@@ -52,6 +53,11 @@ class PowerScheduleReceiver : BroadcastReceiver() {
                         } else {
                             showToast(context, "Error: No se pudo encender. ¿ADB local/inalámbrico activo?")
                         }
+                        
+                        // Wait 1.5 seconds and send KEYCODE_DPAD_RIGHT to wake up screen on older devices (e.g. Xiaomi Stick on Samsung TV)
+                        delay(1500)
+                        Log.d(TAG, "Sending KEYCODE_DPAD_RIGHT to ensure TV screen wakes up...")
+                        executeAdbCommand(context, "input keyevent KEYCODE_DPAD_RIGHT")
                         
                         // Launch MainActivity to bring signage back to front
                         launchMainActivity(context)
