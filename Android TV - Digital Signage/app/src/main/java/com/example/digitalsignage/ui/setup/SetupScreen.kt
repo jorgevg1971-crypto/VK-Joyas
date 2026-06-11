@@ -27,9 +27,9 @@ import kotlinx.coroutines.withContext
 
 @Composable
 fun SetupScreen(onSetupComplete: (String, String, String, String) -> Unit) {
-    var ip by remember { mutableStateOf("192.168.0.10") }
-    var share by remember { mutableStateOf("compartido") }
-    var user by remember { mutableStateOf("ePC") }
+    var ip by remember { mutableStateOf("192.168.1.204") }
+    var share by remember { mutableStateOf("Compartido") }
+    var user by remember { mutableStateOf("Jorge") }
     var pass by remember { mutableStateOf("3000:1*2-3000:1") }
 
     var isConnecting by remember { mutableStateOf(false) }
@@ -61,13 +61,21 @@ fun SetupScreen(onSetupComplete: (String, String, String, String) -> Unit) {
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
+                modifier = Modifier.padding(bottom = 2.dp)
+            )
+            Text(
+                text = "Versión 1.98",
+                fontSize = 14.sp,
+                color = Color(0xFFE50914),
+                fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             Text(
-                text = "Ingrese los datos de conexión para el recurso compartido",
-                fontSize = 13.sp,
-                color = Color.Gray,
-                modifier = Modifier.padding(bottom = 24.dp)
+                text = "Funciona con prendido y apagado en dispositivos ONN conectado a un TV Samsung",
+                fontSize = 12.sp,
+                color = Color.LightGray,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.padding(bottom = 16.dp)
             )
 
             // IP Input

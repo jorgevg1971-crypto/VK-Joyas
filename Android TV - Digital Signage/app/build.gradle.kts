@@ -12,7 +12,7 @@ android {
         minSdk = 24
         targetSdk = 36
         versionCode = 2
-        versionName = "1.1"
+        versionName = "1.98"
     }
 
     buildTypes {
@@ -90,4 +90,8 @@ dependencies {
   implementation(libs.androidx.media3.exoplayer)
   implementation(libs.androidx.media3.ui)
   implementation(libs.coil.compose)
+
+  // Local ADB command execution
+  implementation("dev.mobile:dadb:1.2.10")
 }
+

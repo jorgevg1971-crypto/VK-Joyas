@@ -454,6 +454,34 @@
                     <!-- Dinámico -->
                 </ul>
             </div>
+
+            <!-- Horario de la TV -->
+            <div class="card" id="tvScheduleCard" style="display: none;">
+                <div class="card-title">
+                    ⏰ Horario de Pantalla (TV)
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600;">
+                        <input type="checkbox" id="chkScheduleEnabled" onchange="toggleTvSchedule(this.checked)"> Activar Encendido/Apagado Auto
+                    </label>
+                    <div id="tvScheduleForm" style="display: none; flex-direction: column; gap: 10px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span>Hora Encendido:</span>
+                            <input type="time" id="txtTvOnTime" onchange="updateTvScheduleField()" style="width: 100px;">
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span>Hora Apagado (Sleep):</span>
+                            <input type="time" id="txtTvOffTime" onchange="updateTvScheduleField()" style="width: 100px;">
+                        </div>
+                        <div>
+                            <span style="display: block; margin-bottom: 6px;">Días Activos de TV:</span>
+                            <div class="day-selector" id="tvDaySelector">
+                                <!-- Generado Dinámicamente -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             
             <!-- Info del Programa -->
             <div class="card" style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
@@ -513,6 +541,12 @@
         let dirHandle = null;
         let filesInDir = []; // List of filenames on disk
         let playlist = [];   // List of PlaylistItem objects: { file, duration, schedule, days }
+        let powerSchedule = {
+            enabled: false,
+            on_time: "08:00",
+            off_time: "20:00",
+            days: "lun,mar,mie,jue,vie,sab,dom"
+        };
         
         const supportedExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.mp4', '.mkv', '.avi'];
         const dayMappings = [
@@ -564,11 +598,26 @@
 
         async function loadPlaylist() {
             playlist = [];
+            powerSchedule = {
+                enabled: false,
+                on_time: "08:00",
+                off_time: "20:00",
+                days: "lun,mar,mie,jue,vie,sab,dom"
+            };
             try {
                 const fileHandle = await dirHandle.getFileHandle('playlist.json');
                 const file = await fileHandle.getFile();
                 const text = await file.text();
-                playlist = JSON.parse(text);
+                const data = JSON.parse(text);
+
+                if (data && !Array.isArray(data)) {
+                    playlist = data.items || [];
+                    if (data.power_schedule) {
+                        powerSchedule = { ...powerSchedule, ...data.power_schedule };
+                    }
+                } else if (Array.isArray(data)) {
+                    playlist = data;
+                }
 
                 // Ensure all fields are initialized
                 playlist.forEach(item => {
@@ -607,6 +656,31 @@
         }
 
         function renderUI() {
+            // Render TV power schedule card inputs
+            const tvScheduleCard = document.getElementById('tvScheduleCard');
+            if (dirHandle) {
+                tvScheduleCard.style.display = 'block';
+                document.getElementById('chkScheduleEnabled').checked = powerSchedule.enabled;
+                document.getElementById('tvScheduleForm').style.display = powerSchedule.enabled ? 'flex' : 'none';
+                document.getElementById('txtTvOnTime').value = powerSchedule.on_time || "08:00";
+                document.getElementById('txtTvOffTime').value = powerSchedule.off_time || "20:00";
+                
+                // Render TV Days selector
+                const tvDaySelector = document.getElementById('tvDaySelector');
+                tvDaySelector.innerHTML = '';
+                const tvDaysList = powerSchedule.days ? powerSchedule.days.split(',').map(d => d.trim().toLowerCase()) : [];
+                dayMappings.forEach(day => {
+                    const isSel = tvDaysList.includes(day.id);
+                    const span = document.createElement('span');
+                    span.className = `day-tag ${isSel ? 'selected' : ''}`;
+                    span.innerText = day.label;
+                    span.onclick = () => toggleTvDay(day.id);
+                    tvDaySelector.appendChild(span);
+                });
+            } else {
+                tvScheduleCard.style.display = 'none';
+            }
+
             // Render files list on sidebar
             const mediaList = document.getElementById('mediaFilesList');
             mediaList.innerHTML = '';
@@ -755,7 +829,7 @@
                         <td>${tickerInput}</td>
                         <td>
                             <input type="number" min="1" max="9999" value="${item.duration !== null && item.duration !== undefined ? item.duration : (isVideo ? 10 : 12)}" 
-                                   style="width: 70px;" onchange="updateDuration(${index}, this.value)">
+                                    style="width: 70px;" onchange="updateDuration(${index}, this.value)">
                         </td>
                         <td>
                             <input type="number" min="10" max="500" value="${item.zoom || 100}" 
@@ -890,6 +964,31 @@
             renderUI();
         };
 
+        window.toggleTvSchedule = function(enabled) {
+            powerSchedule.enabled = enabled;
+            renderUI();
+        };
+
+        window.updateTvScheduleField = function() {
+            powerSchedule.on_time = document.getElementById('txtTvOnTime').value;
+            powerSchedule.off_time = document.getElementById('txtTvOffTime').value;
+        };
+
+        window.toggleTvDay = function(dayId) {
+            let tvDaysList = powerSchedule.days ? powerSchedule.days.split(',').map(d => d.trim().toLowerCase()) : [];
+            if (tvDaysList.includes(dayId)) {
+                tvDaysList = tvDaysList.filter(d => d !== dayId);
+            } else {
+                tvDaysList.push(dayId);
+            }
+            const activeDaysSorted = dayMappings
+                .map(d => d.id)
+                .filter(id => tvDaysList.includes(id));
+            
+            powerSchedule.days = activeDaysSorted.join(',');
+            renderUI();
+        };
+
         window.moveItem = function(index, direction) {
             const targetIndex = index + direction;
             if (targetIndex >= 0 && targetIndex < playlist.length) {
@@ -913,7 +1012,11 @@
                 const writable = await fileHandle.createWritable();
                 
                 // Format the JSON nicely
-                const playlistJson = JSON.stringify(playlist, null, 2);
+                const outputData = {
+                    power_schedule: powerSchedule.enabled ? powerSchedule : null,
+                    items: playlist
+                };
+                const playlistJson = JSON.stringify(outputData, null, 2);
                 await writable.write(playlistJson);
                 await writable.close();
                 

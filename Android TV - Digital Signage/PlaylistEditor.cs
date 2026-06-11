@@ -10,6 +10,32 @@ using System.Runtime.Serialization.Json;
 namespace PlaylistEditorApp
 {
     [DataContract]
+    public class PowerSchedule
+    {
+        [DataMember(Order = 1, EmitDefaultValue = true)]
+        public bool enabled { get; set; }
+
+        [DataMember(Order = 2, EmitDefaultValue = true)]
+        public string on_time { get; set; }
+
+        [DataMember(Order = 3, EmitDefaultValue = true)]
+        public string off_time { get; set; }
+
+        [DataMember(Order = 4, EmitDefaultValue = true)]
+        public string days { get; set; }
+    }
+
+    [DataContract]
+    public class PlaylistRoot
+    {
+        [DataMember(Order = 1, EmitDefaultValue = true)]
+        public PowerSchedule power_schedule { get; set; }
+
+        [DataMember(Order = 2, EmitDefaultValue = true)]
+        public List<PlaylistItem> items { get; set; }
+    }
+
+    [DataContract]
     public class PlaylistItem
     {
         [DataMember(Order = 1, EmitDefaultValue = true)]
@@ -54,6 +80,13 @@ namespace PlaylistEditorApp
         private Button btnSave;
         private Button btnRefresh;
         private Label lblPath;
+
+        private CheckBox chkTvEnabled;
+        private TextBox txtTvOnTime;
+        private TextBox txtTvOffTime;
+        private Button btnTvDays;
+        private Label lblTvDaysShow;
+        private string tvDays = "lun,mar,mie,jue,vie,sab,dom";
 
         private string currentDir;
         private readonly string[] supportedExtensions = new string[] { ".png", ".jpg", ".jpeg", ".webp", ".mp4", ".mkv", ".avi" };
@@ -114,7 +147,7 @@ namespace PlaylistEditorApp
             pnlHeader.Controls.Add(btnSave);
 
             Panel pnlLeft = new Panel();
-            pnlLeft.Width = 250;
+            pnlLeft.Width = 260;
             pnlLeft.Dock = DockStyle.Left;
             pnlLeft.Padding = new Padding(10);
             pnlLeft.BackColor = Color.FromArgb(18, 18, 22);
@@ -143,7 +176,105 @@ namespace PlaylistEditorApp
             btnAdd.Click += new EventHandler(btnAdd_Click);
             pnlLeft.Controls.Add(btnAdd);
 
+            Panel pnlTv = new Panel();
+            pnlTv.Dock = DockStyle.Bottom;
+            pnlTv.Height = 190;
+            pnlTv.BackColor = Color.FromArgb(28, 28, 34);
+            pnlTv.Padding = new Padding(10);
+            pnlTv.Margin = new Padding(0, 10, 0, 0);
+
+            Label lblTvTitle = new Label();
+            lblTvTitle.Text = "⏰ Horario de Pantalla (TV)";
+            lblTvTitle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+            lblTvTitle.ForeColor = Color.FromArgb(255, 51, 75);
+            lblTvTitle.Location = new Point(10, 8);
+            lblTvTitle.Size = new Size(220, 20);
+            pnlTv.Controls.Add(lblTvTitle);
+
+            chkTvEnabled = new CheckBox();
+            chkTvEnabled.Text = "Apagado/Encendido Auto";
+            chkTvEnabled.Location = new Point(10, 32);
+            chkTvEnabled.Size = new Size(220, 24);
+            chkTvEnabled.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+
+            Panel pnlTvInputs = new Panel();
+            pnlTvInputs.Location = new Point(10, 60);
+            pnlTvInputs.Size = new Size(230, 125);
+
+            Label lblOn = new Label();
+            lblOn.Text = "Encendido:";
+            lblOn.Location = new Point(0, 5);
+            lblOn.Size = new Size(80, 20);
+            lblOn.Font = new Font("Segoe UI", 9F);
+            lblOn.ForeColor = Color.FromArgb(180, 180, 190);
+            pnlTvInputs.Controls.Add(lblOn);
+
+            txtTvOnTime = new TextBox();
+            txtTvOnTime.Text = "08:00";
+            txtTvOnTime.Location = new Point(90, 2);
+            txtTvOnTime.Size = new Size(70, 25);
+            txtTvOnTime.BackColor = Color.FromArgb(32, 32, 38);
+            txtTvOnTime.ForeColor = Color.White;
+            txtTvOnTime.BorderStyle = BorderStyle.FixedSingle;
+            pnlTvInputs.Controls.Add(txtTvOnTime);
+
+            Label lblOff = new Label();
+            lblOff.Text = "Apagado:";
+            lblOff.Location = new Point(0, 35);
+            lblOff.Size = new Size(80, 20);
+            lblOff.Font = new Font("Segoe UI", 9F);
+            lblOff.ForeColor = Color.FromArgb(180, 180, 190);
+            pnlTvInputs.Controls.Add(lblOff);
+
+            txtTvOffTime = new TextBox();
+            txtTvOffTime.Text = "20:00";
+            txtTvOffTime.Location = new Point(90, 32);
+            txtTvOffTime.Size = new Size(70, 25);
+            txtTvOffTime.BackColor = Color.FromArgb(32, 32, 38);
+            txtTvOffTime.ForeColor = Color.White;
+            txtTvOffTime.BorderStyle = BorderStyle.FixedSingle;
+            pnlTvInputs.Controls.Add(txtTvOffTime);
+
+            btnTvDays = new Button();
+            btnTvDays.Text = "📅 Días de TV";
+            btnTvDays.Location = new Point(0, 65);
+            btnTvDays.Size = new Size(100, 28);
+            btnTvDays.FlatStyle = FlatStyle.Flat;
+            btnTvDays.BackColor = Color.FromArgb(40, 40, 48);
+            btnTvDays.ForeColor = Color.White;
+            btnTvDays.FlatAppearance.BorderColor = Color.FromArgb(80, 80, 90);
+            pnlTvInputs.Controls.Add(btnTvDays);
+
+            lblTvDaysShow = new Label();
+            lblTvDaysShow.Text = "lun,mar,mie,jue,vie,sab,dom";
+            lblTvDaysShow.Location = new Point(0, 98);
+            lblTvDaysShow.Size = new Size(220, 20);
+            lblTvDaysShow.Font = new Font("Segoe UI", 8F);
+            lblTvDaysShow.ForeColor = Color.FromArgb(140, 140, 150);
+            pnlTvInputs.Controls.Add(lblTvDaysShow);
+
+            btnTvDays.Click += (s, ev) => {
+                using (DaysSelectionForm form = new DaysSelectionForm(tvDays))
+                {
+                    if (form.ShowDialog(this) == DialogResult.OK)
+                    {
+                        tvDays = form.SelectedDays;
+                        lblTvDaysShow.Text = string.IsNullOrEmpty(tvDays) ? "Ninguno" : tvDays;
+                    }
+                }
+            };
+
+            chkTvEnabled.CheckedChanged += (s, ev) => {
+                pnlTvInputs.Enabled = chkTvEnabled.Checked;
+            };
+            pnlTvInputs.Enabled = false;
+
+            pnlTv.Controls.Add(chkTvEnabled);
+            pnlTv.Controls.Add(pnlTvInputs);
+            pnlLeft.Controls.Add(pnlTv);
+
             lblDisk.SendToBack();
+            pnlTv.SendToBack();
             btnAdd.SendToBack();
             lbDiskFiles.BringToFront();
 
@@ -363,7 +494,26 @@ namespace PlaylistEditorApp
                 try
                 {
                     string jsonText = File.ReadAllText(path);
-                    List<PlaylistItem> list = DeserializePlaylist(jsonText);
+                    PlaylistRoot root = DeserializePlaylist(jsonText);
+                    
+                    if (root.power_schedule != null)
+                    {
+                        chkTvEnabled.Checked = root.power_schedule.enabled;
+                        txtTvOnTime.Text = root.power_schedule.on_time ?? "08:00";
+                        txtTvOffTime.Text = root.power_schedule.off_time ?? "20:00";
+                        tvDays = root.power_schedule.days ?? "lun,mar,mie,jue,vie,sab,dom";
+                        lblTvDaysShow.Text = string.IsNullOrEmpty(tvDays) ? "Ninguno" : tvDays;
+                    }
+                    else
+                    {
+                        chkTvEnabled.Checked = false;
+                        txtTvOnTime.Text = "08:00";
+                        txtTvOffTime.Text = "20:00";
+                        tvDays = "lun,mar,mie,jue,vie,sab,dom";
+                        lblTvDaysShow.Text = tvDays;
+                    }
+
+                    List<PlaylistItem> list = root.items ?? new List<PlaylistItem>();
                     foreach (PlaylistItem item in list)
                     {
                         int idx = dgvPlaylist.Rows.Add();
@@ -603,9 +753,19 @@ namespace PlaylistEditorApp
                 list.Add(item);
             }
 
+            PlaylistRoot root = new PlaylistRoot();
+            root.power_schedule = new PowerSchedule
+            {
+                enabled = chkTvEnabled.Checked,
+                on_time = txtTvOnTime.Text,
+                off_time = txtTvOffTime.Text,
+                days = tvDays
+            };
+            root.items = list;
+
             try
             {
-                string jsonText = SerializePlaylist(list);
+                string jsonText = SerializePlaylist(root);
                 File.WriteAllText(Path.Combine(currentDir, "playlist.json"), jsonText, Encoding.UTF8);
                 MessageBox.Show("playlist.json guardado con éxito.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
@@ -615,25 +775,44 @@ namespace PlaylistEditorApp
             }
         }
 
-        private string SerializePlaylist(List<PlaylistItem> list)
+        private string SerializePlaylist(PlaylistRoot root)
         {
             using (MemoryStream ms = new MemoryStream())
             {
-                DataContractJsonSerializer ser = new DataContractJsonSerializer(typeof(List<PlaylistItem>));
-                ser.WriteObject(ms, list);
+                DataContractJsonSerializer ser = new DataContractJsonSerializer(typeof(PlaylistRoot));
+                ser.WriteObject(ms, root);
                 string rawJson = Encoding.UTF8.GetString(ms.ToArray());
-                return rawJson.Replace("},{", "},\n  {")
-                              .Replace("[{", "[\n  {")
-                              .Replace("}]", "}\n]");
+                return rawJson.Replace("},\"", "},\n  \"")
+                              .Replace(",\"items\":", ",\n  \"items\":")
+                              .Replace(",\"power_schedule\":", ",\n  \"power_schedule\":")
+                              .Replace("},{", "},\n    {")
+                              .Replace("[{", "[\n    {")
+                              .Replace("}]", "}\n  ]");
             }
         }
 
-        private List<PlaylistItem> DeserializePlaylist(string json)
+        private PlaylistRoot DeserializePlaylist(string json)
         {
             using (MemoryStream ms = new MemoryStream(Encoding.UTF8.GetBytes(json)))
             {
-                DataContractJsonSerializer ser = new DataContractJsonSerializer(typeof(List<PlaylistItem>));
-                return (List<PlaylistItem>)ser.ReadObject(ms);
+                try
+                {
+                    DataContractJsonSerializer ser = new DataContractJsonSerializer(typeof(PlaylistRoot));
+                    return (PlaylistRoot)ser.ReadObject(ms);
+                }
+                catch
+                {
+                    using (MemoryStream msFallback = new MemoryStream(Encoding.UTF8.GetBytes(json)))
+                    {
+                        DataContractJsonSerializer serList = new DataContractJsonSerializer(typeof(List<PlaylistItem>));
+                        List<PlaylistItem> list = (List<PlaylistItem>)serList.ReadObject(msFallback);
+                        return new PlaylistRoot
+                        {
+                            power_schedule = new PowerSchedule { enabled = false },
+                            items = list
+                        };
+                    }
+                }
             }
         }
 

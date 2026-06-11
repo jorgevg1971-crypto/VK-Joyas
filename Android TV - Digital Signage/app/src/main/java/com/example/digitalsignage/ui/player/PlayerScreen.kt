@@ -67,6 +67,7 @@ fun PlayerScreen(onResetConfig: () -> Unit) {
     var statusMessage by remember { mutableStateOf("Iniciando...") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var playerErrorDetail by remember { mutableStateOf<String?>(null) }
+    var reloadTrigger by remember { mutableIntStateOf(0) }
 
     val exoPlayer = remember {
         val renderersFactory = androidx.media3.exoplayer.DefaultRenderersFactory(context).apply {
@@ -113,6 +114,7 @@ fun PlayerScreen(onResetConfig: () -> Unit) {
             when (event) {
                 Lifecycle.Event.ON_PAUSE -> exoPlayer.pause()
                 Lifecycle.Event.ON_RESUME -> {
+                    reloadTrigger++
                     if (currentFile != null && currentFile.isVideo) {
                         exoPlayer.play()
                     }
@@ -137,7 +139,7 @@ fun PlayerScreen(onResetConfig: () -> Unit) {
             errorMessage = null
             withContext(Dispatchers.IO) {
                 try {
-                    val downloadedList = SMBHelper.syncAndGetMediaFiles(ip, share, user, pass, cacheDir) { status ->
+                    val downloadedList = SMBHelper.syncAndGetMediaFiles(context, ip, share, user, pass, cacheDir) { status ->
                         statusMessage = status
                     }
                     withContext(Dispatchers.Main) {
@@ -179,9 +181,8 @@ fun PlayerScreen(onResetConfig: () -> Unit) {
                 } catch (e: Exception) {
                     Log.e("PlayerScreen", "Error updating playlist from network share", e)
                     withContext(Dispatchers.Main) {
-                        if (playlist.isEmpty()) {
-                            errorMessage = e.message ?: "Error de red desconocido."
-                        }
+                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                        errorMessage = e.message ?: "Error de red desconocido."
                         isLoading = false
                     }
                 }
@@ -210,22 +211,16 @@ fun PlayerScreen(onResetConfig: () -> Unit) {
 
     val currentVideoPath = if (currentFile != null && currentFile.isVideo) currentFile.mainFile?.absolutePath else null
 
-    // Handle media player setup when currentVideoPath changes
-    LaunchedEffect(currentVideoPath) {
+    // Handle media player setup when currentVideoPath changes or when app resumes from standby
+    LaunchedEffect(currentVideoPath, reloadTrigger) {
         if (currentVideoPath != null) {
             val file = currentFile?.mainFile
             if (file != null) {
                 try {
                     val uri = Uri.fromFile(file)
-                    val currentMediaUri = exoPlayer.currentMediaItem?.localConfiguration?.uri
-                    if (currentMediaUri == uri) {
-                        Log.d("PlayerScreen", "Video URI is already loaded: $uri. Skipping reload.")
-                        return@LaunchedEffect
-                    }
                     
                     playerErrorDetail = null
-                    Log.d("PlayerScreen", "Loading video from URI: $uri")
-                    Toast.makeText(context, "Cargando video: ${file.name}", Toast.LENGTH_SHORT).show()
+                    Log.d("PlayerScreen", "Loading video from URI: $uri (trigger=$reloadTrigger)")
                     
                     exoPlayer.stop()
                     exoPlayer.clearMediaItems()
@@ -234,6 +229,7 @@ fun PlayerScreen(onResetConfig: () -> Unit) {
                     exoPlayer.prepare()
                     exoPlayer.play()
                 } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
                     Log.e("PlayerScreen", "Error setting up video playback", e)
                     Toast.makeText(context, "Error setup video: ${e.message}", Toast.LENGTH_LONG).show()
                 }
@@ -243,6 +239,34 @@ fun PlayerScreen(onResetConfig: () -> Unit) {
                 exoPlayer.stop()
                 exoPlayer.clearMediaItems()
             }
+        }
+    }
+
+    var lastPowerState by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val shouldSleep = com.example.digitalsignage.PowerScheduleManager.shouldSleepNow(context)
+            if (lastPowerState != shouldSleep) {
+                // Ignore the very first check to avoid redundant triggers when app starts,
+                // since PowerScheduleManager.updateSchedule already handles it.
+                if (lastPowerState != null) {
+                    if (shouldSleep) {
+                        Log.d("PlayerScreen", "Schedule monitor: Time to sleep. Sending broadcast.")
+                        val intent = android.content.Intent(context, com.example.digitalsignage.PowerScheduleReceiver::class.java).apply {
+                            action = com.example.digitalsignage.PowerScheduleManager.ACTION_TV_SLEEP
+                        }
+                        context.sendBroadcast(intent)
+                    } else {
+                        Log.d("PlayerScreen", "Schedule monitor: Time to wake up. Sending broadcast.")
+                        val intent = android.content.Intent(context, com.example.digitalsignage.PowerScheduleReceiver::class.java).apply {
+                            action = com.example.digitalsignage.PowerScheduleManager.ACTION_TV_WAKEUP
+                        }
+                        context.sendBroadcast(intent)
+                    }
+                }
+                lastPowerState = shouldSleep
+            }
+            delay(10000) // Check every 10 seconds
         }
     }
 
@@ -303,6 +327,23 @@ fun PlayerScreen(onResetConfig: () -> Unit) {
             currentFile?.let { activeItem ->
                 Box(modifier = Modifier.fillMaxSize()) {
                     DigitalSignageLayout(activeItem = activeItem, exoPlayer = exoPlayer)
+
+                    errorMessage?.let { errorText ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.Red.copy(alpha = 0.8f))
+                                .padding(12.dp)
+                                .align(Alignment.TopCenter)
+                        ) {
+                            Text(
+                                text = "Error de Sincronización: $errorText",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
 
                     if (playlist.size > 1) {
                         Text(

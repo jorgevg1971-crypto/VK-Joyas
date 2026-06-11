@@ -1,5 +1,6 @@
 package com.example.digitalsignage
 
+import android.content.Context
 import android.util.Log
 import com.hierynomus.msdtyp.AccessMask
 import com.hierynomus.mssmb2.SMB2CreateDisposition
@@ -16,6 +17,20 @@ import java.util.Calendar
 import java.util.EnumSet
 
 @Serializable
+data class PowerSchedule(
+    val enabled: Boolean = false,
+    val on_time: String? = null,
+    val off_time: String? = null,
+    val days: String? = null
+)
+
+@Serializable
+data class PlaylistRoot(
+    val power_schedule: PowerSchedule? = null,
+    val items: List<PlaylistItem> = emptyList()
+)
+
+@Serializable
 data class PlaylistItem(
     val layout: String? = null,
     val file: String? = null,
@@ -30,6 +45,7 @@ data class PlaylistItem(
 )
 
 data class ActivePlaylistItem(
+
     val layout: String,
     val mainFile: File?,
     val sidebarFile: File?,
@@ -75,6 +91,7 @@ object SMBHelper {
     }
 
     fun syncAndGetMediaFiles(
+        context: Context,
         ip: String,
         shareName: String,
         user: String,
@@ -171,12 +188,22 @@ object SMBHelper {
                     coerceInputValues = true
                     explicitNulls = true
                 }
+                var powerSchedule: PowerSchedule? = null
                 val items = try {
-                    leniencyJson.decodeFromString<List<PlaylistItem>>(sanitizedContent)
+                    if (sanitizedContent.startsWith("{")) {
+                        val root = leniencyJson.decodeFromString<PlaylistRoot>(sanitizedContent)
+                        powerSchedule = root.power_schedule
+                        root.items
+                    } else {
+                        leniencyJson.decodeFromString<List<PlaylistItem>>(sanitizedContent)
+                    }
                 } catch (e: Exception) {
                     val preview = if (sanitizedContent.length > 100) sanitizedContent.take(100) + "..." else sanitizedContent
                     throw Exception("Error de lectura: El archivo playlist.json tiene un formato incorrecto. Detalle: ${e.message}. Inicio del archivo: '$preview'", e)
                 }
+
+                // Sync power schedule alarms
+                PowerScheduleManager.updateSchedule(context, powerSchedule)
 
                 // Filter active items based on schedule and day of the week
                 val activeItems = items.filter { item ->
@@ -184,6 +211,7 @@ object SMBHelper {
                     val isDayMatch = item.days?.let { isCurrentDayMatch(it) } ?: true
                     isScheduled && isDayMatch
                 }
+
 
                 if (activeItems.isEmpty()) {
                     throw Exception("Sin elementos activos: Ninguno de los elementos en playlist.json coincide con el horario y día actual.")
@@ -275,7 +303,7 @@ object SMBHelper {
                 // Delete local files no longer in active playlist (case-insensitive)
                 cacheDir.listFiles()?.forEach { localFile ->
                     val localNameLower = localFile.name.lowercase()
-                    if (localNameLower !in activeNamesLower && localFile.name != "playlist.json") {
+                    if (localNameLower !in activeNamesLower && localFile.name != "playlist.json" && localFile.name != "playlist_cache.json") {
                         try {
                             localFile.delete()
                             Log.d(TAG, "Deleted old cached file: ${localFile.name}")
@@ -285,13 +313,33 @@ object SMBHelper {
                     }
                 }
 
+                // Save successful playlist JSON to local cache
+                try {
+                    val cachePlaylistFile = File(cacheDir, "playlist_cache.json")
+                    cachePlaylistFile.writeText(sanitizedContent, Charsets.UTF_8)
+                    Log.d(TAG, "Saved playlist_cache.json successfully.")
+                } catch (ce: Exception) {
+                    Log.e(TAG, "Failed to save playlist_cache.json", ce)
+                }
+
                 onStatusUpdate("Sincronización completa. Iniciando lista...")
                 return localFiles
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error in SMB operations, trying fallback to cache...", e)
-            val cached = getFallbackCachedFiles(cacheDir)
+            val cached = getFallbackPlaylistFromCache(context, cacheDir)
             if (cached.isNotEmpty()) {
+                try {
+                    android.os.Handler(context.mainLooper).post {
+                        android.widget.Toast.makeText(
+                            context,
+                            "Error de sincronización, usando copia local: ${e.message}",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    }
+                } catch (t: Throwable) {
+                    Log.e(TAG, "Failed to show fallback toast", t)
+                }
                 return cached
             }
             throw e
@@ -302,6 +350,92 @@ object SMBHelper {
                 Log.e(TAG, "Error closing SMB client", e)
             }
         }
+    }
+
+    private fun getFallbackPlaylistFromCache(context: Context, cacheDir: File): List<ActivePlaylistItem> {
+        Log.d(TAG, "Attempting to load fallback playlist from cached json...")
+        val cachePlaylistFile = File(cacheDir, "playlist_cache.json")
+        if (cachePlaylistFile.exists()) {
+            try {
+                val jsonContent = cachePlaylistFile.readText(Charsets.UTF_8).trim()
+                var sanitizedContent = jsonContent
+                if (sanitizedContent.startsWith("\uFEFF")) {
+                    sanitizedContent = sanitizedContent.substring(1).trim()
+                }
+                val leniencyJson = Json {
+                    ignoreUnknownKeys = true
+                    coerceInputValues = true
+                    explicitNulls = true
+                }
+                var powerSchedule: PowerSchedule? = null
+                val items = try {
+                    if (sanitizedContent.startsWith("{")) {
+                        val root = leniencyJson.decodeFromString<PlaylistRoot>(sanitizedContent)
+                        powerSchedule = root.power_schedule
+                        root.items
+                    } else {
+                        leniencyJson.decodeFromString<List<PlaylistItem>>(sanitizedContent)
+                    }
+                } catch (e: Exception) {
+                    leniencyJson.decodeFromString<List<PlaylistItem>>(sanitizedContent)
+                }
+
+                // Sync power schedule alarms from cache
+                PowerScheduleManager.updateSchedule(context, powerSchedule)
+                
+                // Filter active items based on schedule and day of the week
+                val activeItems = items.filter { item ->
+
+                    val isScheduled = item.schedule?.let { isCurrentTimeBetween(it) } ?: true
+                    val isDayMatch = item.days?.let { isCurrentDayMatch(it) } ?: true
+                    isScheduled && isDayMatch
+                }
+
+                val localFiles = mutableListOf<ActivePlaylistItem>()
+                activeItems.forEach { item ->
+                    val layout = item.layout ?: "fullscreen"
+                    val mainFileName = item.main_file ?: item.file
+                    val sidebarFileName = item.sidebar_file
+
+                    val mainFile = if (!mainFileName.isNullOrEmpty()) {
+                        val file = File(cacheDir, mainFileName)
+                        if (file.exists()) file else null
+                    } else null
+
+                    val sidebarFile = if (!sidebarFileName.isNullOrEmpty()) {
+                        val file = File(cacheDir, sidebarFileName)
+                        if (file.exists()) file else null
+                    } else null
+
+                    val isVideo = mainFileName?.let { isVideoFile(it) } ?: false
+
+                    if (mainFile != null || mainFileName == null) {
+                        localFiles.add(
+                            ActivePlaylistItem(
+                                layout = layout,
+                                mainFile = mainFile,
+                                sidebarFile = sidebarFile,
+                                tickerText = item.ticker_text ?: "",
+                                durationSeconds = item.duration ?: 12,
+                                isVideo = isVideo,
+                                zoomPercent = item.zoom ?: 100,
+                                sidebarZoomPercent = item.sidebar_zoom ?: 100
+                            )
+                        )
+                    }
+                }
+
+                if (localFiles.isNotEmpty()) {
+                    Log.d(TAG, "Successfully restored ${localFiles.size} active items from playlist_cache.json")
+                    return localFiles
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error reading or parsing playlist_cache.json, using fallback files", e)
+            }
+        }
+        
+        // Final fallback if playlist_cache.json doesn't exist or is empty
+        return getFallbackCachedFiles(cacheDir)
     }
 
     private fun readTextFromSMB(share: DiskShare, relativePath: String): String? {
