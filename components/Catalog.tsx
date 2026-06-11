@@ -24,12 +24,16 @@ export default function Catalog({
   categories = [], 
   whatsappNumber,
   whatsappButtonText,
+  heroButtonText,
+  heroButtonTarget,
   heroImageUrl
 }: { 
   products: any[]; 
   categories?: Category[]; 
   whatsappNumber?: string;
   whatsappButtonText?: any;
+  heroButtonText?: any;
+  heroButtonTarget?: string;
   heroImageUrl?: string;
 }) {
   const [currentCategory, setCurrentCategory] = useState<string>('all');
@@ -41,6 +45,13 @@ export default function Catalog({
     const customText = getLocalized(whatsappButtonText);
     return customText || t('orderWhatsApp');
   };
+
+  const getHeroButtonText = () => {
+    const customText = getLocalized(heroButtonText);
+    return customText || t('heroButton');
+  };
+
+  const activeHeroButtonTarget = heroButtonTarget === 'home-categories' ? '#home-categories' : '#catalogo';
   
   const activeWhatsapp = whatsappNumber || DEFAULT_WHATSAPP_NUMBER;
   const activeCategories = categories.length > 0 ? categories : DEFAULT_CATEGORIES;
@@ -112,7 +123,7 @@ export default function Catalog({
         <div className="hero-content">
           <h1>{t('heroTitle')}</h1>
           <p>{t('heroSubtitle')}</p>
-          <a href="#catalogo" className="btn-primary">{t('heroButton')}</a>
+          <a href={activeHeroButtonTarget} className="btn-primary">{getHeroButtonText()}</a>
         </div>
       </section>
 

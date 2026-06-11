@@ -28,6 +28,25 @@ export const settings = defineType({
       },
     }),
     defineField({
+      name: 'heroButtonText',
+      title: 'Texto del Botón de la Portada',
+      type: 'localeString',
+      description: 'Texto personalizado para el botón principal de la portada. Si se deja vacío, se usará "Ver Colección" (o "View Collection" en inglés).',
+    }),
+    defineField({
+      name: 'heroButtonTarget',
+      title: 'Destino del Botón de la Portada',
+      type: 'string',
+      options: {
+        list: [
+          { title: 'Colección Completa (Sección de Productos)', value: 'catalogo' },
+          { title: 'Nuestras Categorías (Sección de Categorías)', value: 'home-categories' },
+        ]
+      },
+      initialValue: 'catalogo',
+      description: 'Selecciona la sección de la página de inicio a la que se desplazará la pantalla al pulsar el botón.',
+    }),
+    defineField({
       name: 'socialLinks',
       title: 'Redes Sociales',
       type: 'array',

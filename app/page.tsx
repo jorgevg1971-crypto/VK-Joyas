@@ -26,6 +26,8 @@ export default async function Page() {
       "settings": *[_type == "settings"][0] {
         whatsappNumber,
         whatsappButtonText,
+        heroButtonText,
+        heroButtonTarget,
         "heroImageUrl": heroImage.asset->url
       }
     }
@@ -37,6 +39,8 @@ export default async function Page() {
       categories={data.categories || []}
       whatsappNumber={data.settings?.whatsappNumber}
       whatsappButtonText={data.settings?.whatsappButtonText}
+      heroButtonText={data.settings?.heroButtonText}
+      heroButtonTarget={data.settings?.heroButtonTarget}
       heroImageUrl={data.settings?.heroImageUrl}
     />
   );
