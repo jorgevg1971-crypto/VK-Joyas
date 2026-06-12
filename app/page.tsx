@@ -28,6 +28,7 @@ export default async function Page() {
         whatsappButtonText,
         heroButtonText,
         heroButtonTarget,
+        "showFullCollection": coalesce(showFullCollection, true),
         "heroImageUrl": heroImage.asset->url
       }
     }
@@ -41,6 +42,7 @@ export default async function Page() {
       whatsappButtonText={data.settings?.whatsappButtonText}
       heroButtonText={data.settings?.heroButtonText}
       heroButtonTarget={data.settings?.heroButtonTarget}
+      showFullCollection={data.settings?.showFullCollection}
       heroImageUrl={data.settings?.heroImageUrl}
     />
   );

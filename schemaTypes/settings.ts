@@ -47,6 +47,13 @@ export const settings = defineType({
       description: 'Selecciona la sección de la página de inicio a la que se desplazará la pantalla al pulsar el botón.',
     }),
     defineField({
+      name: 'showFullCollection',
+      title: 'Mostrar Colección Completa en la Portada',
+      type: 'boolean',
+      initialValue: true,
+      description: 'Si se desmarca, la sección "Colección Completa" (grilla de todos los productos) se ocultará de la página de inicio, pero se mostrará al seleccionar una categoría específica.',
+    }),
+    defineField({
       name: 'socialLinks',
       title: 'Redes Sociales',
       type: 'array',
