@@ -268,14 +268,22 @@ object SMBHelper {
                                     }
                                 }
 
-                                onStatusUpdate("Abriendo instalador de versión $remoteVersionName...")
-                                val authority = "${context.packageName}.fileprovider"
-                                val uri = androidx.core.content.FileProvider.getUriForFile(context, authority, localApkFile)
-                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                                    setDataAndType(uri, "application/vnd.android.package-archive")
-                                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                // Verify APK integrity before installing
+                                val packageInfo = context.packageManager.getPackageArchiveInfo(localApkFile.absolutePath, 0)
+                                if (packageInfo == null) {
+                                    Log.e(TAG, "APK download was incomplete or corrupted. Deleting file.")
+                                    localApkFile.delete()
+                                    onStatusUpdate("Error: APK corrupto o incompleto. Reintentando...")
+                                } else {
+                                    onStatusUpdate("Abriendo instalador de versión $remoteVersionName...")
+                                    val authority = "${context.packageName}.fileprovider"
+                                    val uri = androidx.core.content.FileProvider.getUriForFile(context, authority, localApkFile)
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                        setDataAndType(uri, "application/vnd.android.package-archive")
+                                        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                    }
+                                    context.startActivity(intent)
                                 }
-                                context.startActivity(intent)
                             } catch (e: Exception) {
                                 Log.e(TAG, "Failed to download or install update APK", e)
                             }
