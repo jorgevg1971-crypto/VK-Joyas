@@ -16,7 +16,8 @@ export default async function Page() {
         "category": category->slug.current,
         "categoryName": category->name,
         description,
-        "imageUrl": image.asset->url
+        "imageUrl": image.asset->url,
+        "images": coalesce(images[].asset->url, [])
       },
       "categories": *[_type == "category" && visible == true] | order(orderRank asc, name.es asc) {
         _id,

@@ -51,6 +51,13 @@ export const product = defineType({
       validation: (rule) => rule.required(),
     }),
     defineField({
+      name: 'images',
+      title: 'Imágenes Adicionales (Opcional)',
+      type: 'array',
+      description: 'Sube más fotos de este producto para crear una galería desplazable.',
+      of: [{ type: 'image', options: { hotspot: true } }]
+    }),
+    defineField({
       name: 'visible',
       title: '¿Visible en la Web?',
       type: 'boolean',

@@ -581,3 +581,67 @@ footer {
         font-size: 1.6rem;
     }
 }
+
+/* Gallery Nav Buttons */
+.gallery-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.4);
+    color: white;
+    border: none;
+    width: 44px;
+    height: 44px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    z-index: 5;
+    user-select: none;
+}
+
+.gallery-nav-btn:hover {
+    background: rgba(0, 0, 0, 0.7);
+    color: var(--color-accent);
+}
+
+.gallery-nav-btn.prev {
+    left: 1rem;
+}
+
+.gallery-nav-btn.next {
+    right: 1rem;
+}
+
+/* Gallery Indicators (Dots) */
+.gallery-dots {
+    position: absolute;
+    bottom: 1.2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 0.6rem;
+    z-index: 5;
+}
+
+.gallery-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.gallery-dot:hover {
+    background: rgba(255, 255, 255, 0.7);
+}
+
+.gallery-dot.active {
+    background: white;
+    width: 22px;
+    border-radius: 5px;
+}

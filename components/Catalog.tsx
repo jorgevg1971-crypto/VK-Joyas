@@ -40,8 +40,18 @@ export default function Catalog({
 }) {
   const [currentCategory, setCurrentCategory] = useState<string>('all');
   const [lightboxProduct, setLightboxProduct] = useState<any | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState<number>(0);
   const [visibleCount, setVisibleCount] = useState<number>(21);
   const { language, t } = useLanguage();
+
+  const allImages = lightboxProduct
+    ? [lightboxProduct.imageUrl, ...(lightboxProduct.images || [])].filter(Boolean)
+    : [];
+
+  const openLightbox = (product: any) => {
+    setLightboxProduct(product);
+    setActiveImageIndex(0);
+  };
 
   const getWhatsAppButtonText = () => {
     const customText = getLocalized(whatsappButtonText);
@@ -69,11 +79,19 @@ export default function Catalog({
     
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setLightboxProduct(null);
+      if (lightboxProduct && allImages.length > 1) {
+        if (e.key === 'ArrowLeft') {
+          setActiveImageIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
+        }
+        if (e.key === 'ArrowRight') {
+          setActiveImageIndex((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
+        }
+      }
     };
     
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [lightboxProduct]);
+  }, [lightboxProduct, allImages.length]);
 
   // Resuelve textos traducibles con compatibilidad para textos viejos (string simple)
   const getLocalized = (val: any) => {
@@ -202,7 +220,7 @@ export default function Catalog({
               const productDesc = getLocalized(product.description);
               return (
                 <div className="product-card" key={product._id}>
-                  <div className="product-image-container" onClick={() => setLightboxProduct(product)}>
+                  <div className="product-image-container" onClick={() => openLightbox(product)}>
                     {product.imageUrl && (
                       <Image 
                         src={product.imageUrl} 
@@ -256,12 +274,47 @@ export default function Catalog({
             <div className="modal-layout">
               <div className="modal-image-container-zoom">
                 <Image 
-                  src={lightboxProduct.imageUrl} 
+                  src={allImages[activeImageIndex]} 
                   alt={getLocalized(lightboxProduct.name)}
                   fill
                   style={{ objectFit: 'contain' }}
                   unoptimized={true}
                 />
+                
+                {allImages.length > 1 && (
+                  <>
+                    <button 
+                      className="gallery-nav-btn prev" 
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        setActiveImageIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1)); 
+                      }}
+                    >
+                      &#10094;
+                    </button>
+                    <button 
+                      className="gallery-nav-btn next" 
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        setActiveImageIndex((prev) => (prev === allImages.length - 1 ? 0 : prev + 1)); 
+                      }}
+                    >
+                      &#10095;
+                    </button>
+                    <div className="gallery-dots">
+                      {allImages.map((_, idx) => (
+                        <span 
+                          key={idx} 
+                          className={`gallery-dot ${idx === activeImageIndex ? 'active' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveImageIndex(idx);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
               <div className="modal-info-side">
                 <h2 className="modal-product-title">{getLocalized(lightboxProduct.name)}</h2>
