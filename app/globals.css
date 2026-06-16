@@ -393,6 +393,11 @@ a {
     border-right: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.modal-image-container-zoom img {
+    pointer-events: none;
+    user-select: none;
+}
+
 .modal-info-side {
     padding: 2.5rem;
     display: flex;
