@@ -166,6 +166,8 @@ a {
     object-fit: cover;
     transition: transform 0.7s ease;
     opacity: 0.8;
+    pointer-events: none;
+    user-select: none;
 }
 
 .category-card:hover img {
@@ -246,6 +248,8 @@ a {
     height: 100%;
     object-fit: cover;
     transition: transform 0.5s ease;
+    pointer-events: none;
+    user-select: none;
 }
 
 .product-card:hover .product-image {
