@@ -67,15 +67,26 @@ function App() {
     try {
       const url = pathQuery ? `/api/local-dir?path=${encodeURIComponent(pathQuery)}` : '/api/local-dir';
       const res = await fetch(url);
-      const data = await res.json();
-      if (res.ok) {
-        setExplorerDrives(data.drives || []);
-        setExplorerCurrent(data.current || '');
-        setExplorerParent(data.parent);
-        setExplorerSubdirs(data.subdirs || []);
-      } else {
-        setExplorerError(data.error || 'No se pudo cargar el directorio.');
+      
+      if (!res.ok) {
+        let errMsg = 'No se pudo cargar el directorio.';
+        try {
+          const data = await res.json();
+          // If the backend returned a JSON error, use it
+          errMsg = data.error || errMsg;
+        } catch (jsonErr) {
+          // If not JSON, use HTTP status
+          errMsg = `Error ${res.status}: ${res.statusText || 'Respuesta no válida'}`;
+        }
+        setExplorerError(errMsg);
+        return;
       }
+
+      const data = await res.json();
+      setExplorerDrives(data.drives || []);
+      setExplorerCurrent(data.current || '');
+      setExplorerParent(data.parent);
+      setExplorerSubdirs(data.subdirs || []);
     } catch (err) {
       setExplorerError('Error de red al cargar el directorio.');
     }
