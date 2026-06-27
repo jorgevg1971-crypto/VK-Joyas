@@ -273,6 +273,8 @@ app.post('/api/restore', async (req, res) => {
     console.error('Restoration failed:', err);
     res.status(500).json({ success: false, message: `Restoration failed: ${err.message}` });
   }
+});
+
 // Helper to get active Windows drives
 function getLogicalDrives() {
   const drives = [];
