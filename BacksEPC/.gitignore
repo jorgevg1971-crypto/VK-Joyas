@@ -1,0 +1,19 @@
+# Node.js dependencies
+node_modules/
+
+# Local database and configuration (protects NAS credentials and local logs)
+backend/data/
+
+# Service runtime logs
+service.log
+*.log
+
+# C# compilation leftovers
+# we keep the compiled ePCBackupService.exe for easy installation, but ignore temporary files if any
+obj/
+bin/
+
+# IDE files
+.vscode/
+.idea/
+.DS_Store
