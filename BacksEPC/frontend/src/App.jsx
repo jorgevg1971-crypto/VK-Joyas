@@ -53,6 +53,62 @@ function App() {
   const [restoreMessage, setRestoreMessage] = useState({ type: '', text: '' });
   const [isRestoring, setIsRestoring] = useState(false);
 
+  // Local Folder Explorer State
+  const [isFolderExplorerOpen, setIsFolderExplorerOpen] = useState(false);
+  const [explorerDrives, setExplorerDrives] = useState([]);
+  const [explorerCurrent, setExplorerCurrent] = useState('');
+  const [explorerParent, setExplorerParent] = useState(null);
+  const [explorerSubdirs, setExplorerSubdirs] = useState([]);
+  const [explorerMode, setExplorerMode] = useState('source'); // 'source', 'destination', 'restore-custom'
+  const [explorerError, setExplorerError] = useState(null);
+
+  const loadLocalDir = async (pathQuery = '') => {
+    setExplorerError(null);
+    try {
+      const url = pathQuery ? `/api/local-dir?path=${encodeURIComponent(pathQuery)}` : '/api/local-dir';
+      const res = await fetch(url);
+      const data = await res.json();
+      if (res.ok) {
+        setExplorerDrives(data.drives || []);
+        setExplorerCurrent(data.current || '');
+        setExplorerParent(data.parent);
+        setExplorerSubdirs(data.subdirs || []);
+      } else {
+        setExplorerError(data.error || 'No se pudo cargar el directorio.');
+      }
+    } catch (err) {
+      setExplorerError('Error de red al cargar el directorio.');
+    }
+  };
+
+  const openFolderBrowser = (mode) => {
+    setExplorerMode(mode);
+    setIsFolderExplorerOpen(true);
+    setExplorerError(null);
+    
+    let startPath = '';
+    if (mode === 'source') startPath = newSourcePath;
+    else if (mode === 'destination') startPath = destination;
+    else if (mode === 'restore-custom') startPath = customRestorePath;
+
+    if (startPath.startsWith('\\\\')) {
+      startPath = '';
+    }
+
+    loadLocalDir(startPath);
+  };
+
+  const selectExplorerFolder = () => {
+    if (explorerMode === 'source') {
+      setNewSourcePath(explorerCurrent);
+    } else if (explorerMode === 'destination') {
+      setDestination(explorerCurrent);
+    } else if (explorerMode === 'restore-custom') {
+      setCustomRestorePath(explorerCurrent);
+    }
+    setIsFolderExplorerOpen(false);
+  };
+
   // Poll status and fetch history
   useEffect(() => {
     fetchStatus();
@@ -574,8 +630,16 @@ function App() {
                     placeholder="Ej. C:\Usuarios\Jorge\Documentos" 
                     value={newSourcePath}
                     onChange={(e) => setNewSourcePath(e.target.value)}
+                    style={{ flex: 1 }}
                   />
-                  <button type="button" className="btn btn-secondary" onClick={addSourcePath}>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    onClick={() => openFolderBrowser('source')}
+                  >
+                    Examinar...
+                  </button>
+                  <button type="button" className="btn btn-primary" onClick={addSourcePath}>
                     Añadir
                   </button>
                 </div>
@@ -604,13 +668,23 @@ function App() {
                 
                 <div className="form-group">
                   <label>Ruta UNC del Recurso Compartido NAS</label>
-                  <input 
-                    type="text" 
-                    placeholder="Ej. \\192.168.1.100\Backups" 
-                    value={destination}
-                    onChange={(e) => setDestination(e.target.value)}
-                    required
-                  />
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <input 
+                      type="text" 
+                      placeholder="Ej. \\192.168.1.100\Backups" 
+                      value={destination}
+                      onChange={(e) => setDestination(e.target.value)}
+                      required
+                      style={{ flex: 1 }}
+                    />
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary" 
+                      onClick={() => openFolderBrowser('destination')}
+                    >
+                      Examinar...
+                    </button>
+                  </div>
                   <div className="helper-text">
                     La ruta de red del NAS que se encuentra en otra subnet.
                   </div>
@@ -966,14 +1040,23 @@ function App() {
                 </label>
 
                 {restoreMode === 'custom' && (
-                  <input 
-                    type="text" 
-                    placeholder="Ej. C:\Recuperados" 
-                    value={customRestorePath}
-                    onChange={(e) => setCustomRestorePath(e.target.value)}
-                    style={{ marginTop: '0.5rem' }}
-                    required={restoreMode === 'custom'}
-                  />
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <input 
+                      type="text" 
+                      placeholder="Ej. C:\Recuperados" 
+                      value={customRestorePath}
+                      onChange={(e) => setCustomRestorePath(e.target.value)}
+                      style={{ marginTop: 0, flex: 1 }}
+                      required={restoreMode === 'custom'}
+                    />
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary" 
+                      onClick={() => openFolderBrowser('restore-custom')}
+                    >
+                      Examinar...
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -1009,6 +1092,102 @@ function App() {
                 disabled={isRestoring || (restoreMode === 'custom' && !customRestorePath)}
               >
                 {isRestoring ? 'Restaurando...' : 'Restaurar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LOCAL FOLDER EXPLORER MODAL */}
+      {isFolderExplorerOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ width: '600px' }}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600 }}>
+                Examinar Carpetas Locales
+              </h3>
+              <button type="button" className="modal-close" onClick={() => setIsFolderExplorerOpen(false)}>&times;</button>
+            </div>
+
+            {/* Drives selector */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label>Unidades Disponibles:</label>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+                {explorerDrives.map((drive, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className={`day-btn ${explorerCurrent.startsWith(drive) ? 'selected' : ''}`}
+                    onClick={() => loadLocalDir(drive)}
+                    style={{ minWidth: '60px' }}
+                  >
+                    💾 {drive}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Current Path & Up button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+              <div className="breadcrumb" style={{ flex: 1, overflowX: 'auto', whiteSpace: 'nowrap', textAlign: 'left' }}>
+                <strong>Ruta:</strong> {explorerCurrent || 'Selecciona una unidad'}
+              </div>
+              {explorerParent !== null && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                  onClick={() => loadLocalDir(explorerParent)}
+                >
+                  ⬆️ Subir
+                </button>
+              )}
+            </div>
+
+            {/* Error Message */}
+            {explorerError && (
+              <div style={{ color: 'var(--accent-red)', fontSize: '0.85rem', marginBottom: '1rem', fontWeight: 500, textAlign: 'left' }}>
+                {explorerError}
+              </div>
+            )}
+
+            {/* Subfolders list */}
+            <div className="file-list-container" style={{ maxHeight: '250px', overflowY: 'auto', marginBottom: '1.5rem' }}>
+              {explorerSubdirs.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                  No hay subcarpetas accesibles.
+                </div>
+              ) : (
+                explorerSubdirs.map((dir, idx) => (
+                  <div
+                    key={idx}
+                    className="file-explorer-item"
+                    style={{ gridTemplateColumns: '30px 1fr', textAlign: 'left' }}
+                    onClick={() => loadLocalDir(dir.path)}
+                  >
+                    <div className="file-icon">📁</div>
+                    <div className="file-name" style={{ fontWeight: 500 }}>{dir.name}</div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setIsFolderExplorerOpen(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={selectExplorerFolder}
+                disabled={!explorerCurrent}
+              >
+                Seleccionar Carpeta
               </button>
             </div>
           </div>

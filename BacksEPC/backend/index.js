@@ -273,6 +273,63 @@ app.post('/api/restore', async (req, res) => {
     console.error('Restoration failed:', err);
     res.status(500).json({ success: false, message: `Restoration failed: ${err.message}` });
   }
+// Helper to get active Windows drives
+function getLogicalDrives() {
+  const drives = [];
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  for (let i = 0; i < letters.length; i++) {
+    const drive = letters[i] + ':\\';
+    try {
+      if (fs.existsSync(drive)) {
+        drives.push(drive);
+      }
+    } catch (e) {}
+  }
+  return drives.length > 0 ? drives : ['C:\\'];
+}
+
+// Endpoint to list local drives and directories for the folder browser
+app.get('/api/local-dir', (req, res) => {
+  const targetPath = req.query.path;
+  const drives = getLogicalDrives();
+  
+  if (!targetPath) {
+    return res.json({
+      drives,
+      current: '',
+      parent: null,
+      subdirs: drives.map(d => ({ name: d, path: d }))
+    });
+  }
+
+  try {
+    let normalizedPath = path.normalize(targetPath);
+    // Ensure Windows drive path formats correctly, e.g. "C:" -> "C:\"
+    if (/^[A-Z]:$/i.test(normalizedPath)) {
+      normalizedPath += '\\';
+    }
+
+    const items = fs.readdirSync(normalizedPath, { withFileTypes: true });
+    const subdirs = items
+      .filter(item => item.isDirectory())
+      .map(item => ({
+        name: item.name,
+        path: path.join(normalizedPath, item.name)
+      }));
+
+    // Calculate parent directory
+    const isRoot = /^[A-Z]:\\$/i.test(normalizedPath);
+    const parent = isRoot ? null : path.dirname(normalizedPath);
+
+    res.json({
+      drives,
+      current: normalizedPath,
+      parent,
+      subdirs
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Fallback to React app index.html for client-side routing
