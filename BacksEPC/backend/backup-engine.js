@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const nasConnector = require('./nas-connector');
 const db = require('./database');
+const vssManager = require('./vss-manager');
 
 let abortRequested = false;
 
@@ -201,6 +202,12 @@ async function runBackup(requestedType = null) {
 
     currentJobStatus.progress.totalFiles = allSourceFiles.length;
     currentJobStatus.progress.totalBytes = allSourceFiles.reduce((acc, f) => acc + f.size, 0);
+    
+    // Create VSS shadow copies of unique source drives
+    currentJobStatus.progress.currentFile = 'Creando instantánea de volumen (VSS)...';
+    const uniqueDrives = vssManager.getUniqueDrives(config.sources);
+    const shadowMap = vssManager.createShadowCopies(uniqueDrives);
+
     currentJobStatus.status = 'copying';
 
     // 4. Compare files and copy
@@ -235,7 +242,8 @@ async function runBackup(requestedType = null) {
 
       if (shouldCopy) {
         const destFilePath = path.join(destinationFolder, file.relPath);
-        await copyFileWithProgress(file.absPath, destFilePath);
+        const vssSourcePath = vssManager.mapToVssPath(file.absPath, shadowMap);
+        await copyFileWithProgress(vssSourcePath, destFilePath);
         
         manifest[file.relPath] = {
           size: file.size,
@@ -306,10 +314,8 @@ async function runBackup(requestedType = null) {
     currentJobStatus.error = err.message;
     currentJobStatus.progress.currentFile = `Error: ${err.message}`;
   } finally {
-    // If we connected using net use, we can disconnect to avoid locking resources,
-    // though keeping it connected can speed up subsequent operations.
-    // In our case, we disconnect on service shutdown or when connection details change.
-    // We will leave it mounted so that the Restore UI can read it if needed.
+    // Clean up VSS shadow copies and delete symbolic links
+    vssManager.cleanupShadowCopies();
   }
 }
 
