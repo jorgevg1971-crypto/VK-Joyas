@@ -1463,6 +1463,8 @@ function App() {
                         const currentJob = data?.currentJob;
                         const jobStatus = currentJob?.status;
                         const lastRun = data?.lastRunTimestamp;
+                        const lastRunType = data?.lastRunType;
+                        const lastRunHasVssWarning = data?.lastRunHasVssWarning;
 
                         const isRunning = currentJob && jobStatus !== 'idle';
                         const currentFile = currentJob?.progress?.currentFile;
@@ -1509,7 +1511,33 @@ function App() {
                             </td>
                             <td>
                               {lastRun ? (
-                                formatDate(lastRun)
+                                <div>
+                                  <div>{formatDate(lastRun)}</div>
+                                  <div style={{ display: 'flex', gap: '0.25rem', marginTop: '0.25rem' }}>
+                                    <span style={{ 
+                                      fontSize: '0.65rem', 
+                                      padding: '0.1rem 0.3rem', 
+                                      borderRadius: '0.25rem',
+                                      backgroundColor: lastRunType === 'full' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                                      color: lastRunType === 'full' ? 'var(--accent-blue)' : 'var(--accent-green)',
+                                      fontWeight: 600
+                                    }}>
+                                      {lastRunType === 'full' ? 'FULL' : 'INCREMENTAL'}
+                                    </span>
+                                    {lastRunHasVssWarning && (
+                                      <span style={{ 
+                                        fontSize: '0.65rem', 
+                                        padding: '0.1rem 0.3rem', 
+                                        borderRadius: '0.25rem',
+                                        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                                        color: 'var(--accent-orange)',
+                                        fontWeight: 600
+                                      }} title="La última copia de seguridad tuvo advertencias de VSS al abrir archivos bloqueados">
+                                        ⚠️ VSS
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               ) : (
                                 <span style={{ color: 'var(--text-muted)' }}>Ninguna o desconocido</span>
                               )}

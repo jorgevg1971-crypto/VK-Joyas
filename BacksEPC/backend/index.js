@@ -57,6 +57,7 @@ app.get('/api/status', (req, res) => {
   const currentJob = backupEngine.getStatus();
   const config = db.getConfig();
   const runs = db.getRuns().filter(r => r.status === 'success');
+  const lastRun = runs.length > 0 ? runs[runs.length - 1] : null;
   
   let totalSpaceUsed = 0;
   // Calculate approximate space used on NAS from all successful runs
@@ -69,6 +70,8 @@ app.get('/api/status', (req, res) => {
     currentJob,
     deviceIdentifier: config.deviceIdentifier || os.hostname(),
     lastRunTimestamp: config.lastRunTimestamp,
+    lastRunType: lastRun ? lastRun.type : null,
+    lastRunHasVssWarning: lastRun ? !!(lastRun.warnings && lastRun.warnings.length > 0) : false,
     totalSuccessfulBackups: runs.length,
     totalSpaceUsed,
     hasConfiguredSources: config.sources.length > 0,
