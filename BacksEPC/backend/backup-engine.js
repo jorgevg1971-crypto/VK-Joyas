@@ -120,6 +120,7 @@ async function runBackup(requestedType = null) {
   };
 
   let connectedToNas = false;
+  let warnings = [];
   let backupType = requestedType; // will be 'full' or 'incremental'
 
   abortRequested = false;
@@ -208,6 +209,12 @@ async function runBackup(requestedType = null) {
     const uniqueDrives = vssManager.getUniqueDrives(config.sources);
     const shadowMap = vssManager.createShadowCopies(uniqueDrives);
 
+    uniqueDrives.forEach(drive => {
+      if (!shadowMap[drive]) {
+        warnings.push(`VSS falló en ${drive}. Copia directa activa (puede fallar con archivos abiertos).`);
+      }
+    });
+
     currentJobStatus.status = 'copying';
 
     // 4. Compare files and copy
@@ -280,7 +287,8 @@ async function runBackup(requestedType = null) {
       totalSize: currentJobStatus.progress.totalBytes,
       bytesCopied,
       duration,
-      folderName
+      folderName,
+      warnings: warnings.length > 0 ? warnings : null
     };
     db.updateRun(runId, finalRunLog);
 
@@ -307,7 +315,8 @@ async function runBackup(requestedType = null) {
     db.updateRun(runId, {
       status: 'failed',
       duration,
-      error: err.message
+      error: err.message,
+      warnings: warnings.length > 0 ? warnings : null
     });
 
     currentJobStatus.status = 'failed';

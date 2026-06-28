@@ -663,6 +663,21 @@ function App() {
                             <span className={`badge ${run.status === 'success' ? 'badge-success' : run.status === 'running' ? 'badge-running' : 'badge-failed'}`}>
                               {run.status === 'success' ? 'Completado' : run.status === 'running' ? 'Ejecutando' : 'Error'}
                             </span>
+                            {run.warnings && (
+                              <span 
+                                className="badge" 
+                                title={run.warnings.join('\n')}
+                                style={{ 
+                                  marginLeft: '0.5rem', 
+                                  cursor: 'help', 
+                                  backgroundColor: 'rgba(245, 158, 11, 0.15)', 
+                                  color: 'var(--accent-orange)', 
+                                  border: '1px solid rgba(245, 158, 11, 0.3)' 
+                                }}
+                              >
+                                ⚠️ Advertencia VSS
+                              </span>
+                            )}
                           </td>
                           <td>{run.filesCount} / {run.filesCopied}</td>
                           <td>{formatBytes(run.totalSize)} / {formatBytes(run.bytesCopied)}</td>
