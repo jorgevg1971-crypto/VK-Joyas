@@ -40,6 +40,7 @@ function App() {
   const [newSourcePath, setNewSourcePath] = useState('');
   const [saveStatus, setSaveStatus] = useState({ success: null, message: '' });
   const [testConnectionStatus, setTestConnectionStatus] = useState({ success: null, message: '', loading: false });
+  const [deviceIdentifier, setDeviceIdentifier] = useState('');
 
   // Restore explorer state
   const [selectedRun, setSelectedRun] = useState(null);
@@ -169,6 +170,7 @@ function App() {
       const data = await res.json();
       setSources(data.sources || []);
       setDestination(data.destination || '');
+      setDeviceIdentifier(data.deviceIdentifier || '');
       setNasUsername(data.nasUsername || '');
       setScheduleType(data.schedule?.type || 'interval_days');
       setScheduleDays(data.schedule?.daysOfWeek || [1, 2, 3, 4, 5]);
@@ -187,6 +189,7 @@ function App() {
       const payload = {
         sources,
         destination,
+        deviceIdentifier,
         nasUsername,
         schedule: {
           type: scheduleType,
@@ -804,6 +807,20 @@ function App() {
               <div className="card">
                 <h3 className="card-title">Destino Servidor NAS (Red)</h3>
                 
+                <div className="form-group">
+                  <label>Identificador de este Equipo (Subcarpeta en NAS)</label>
+                  <input 
+                    type="text" 
+                    placeholder="Ej. Contabilidad-01" 
+                    value={deviceIdentifier}
+                    onChange={(e) => setDeviceIdentifier(e.target.value)}
+                    required
+                  />
+                  <div className="helper-text">
+                    Nombre único para este equipo. Se creará una subcarpeta con este nombre en el NAS para mantener ordenadas las copias de seguridad de las computadoras.
+                  </div>
+                </div>
+
                 <div className="form-group">
                   <label>Ruta UNC del Recurso Compartido NAS</label>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>

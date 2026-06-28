@@ -5,6 +5,18 @@ const db = require('./database');
 const backupEngine = require('./backup-engine');
 const scheduler = require('./scheduler');
 const nasConnector = require('./nas-connector');
+const os = require('os');
+
+// Convert path to Windows long path format (supports up to 32,767 characters)
+function toLongPath(p) {
+  if (!p) return p;
+  const normalized = path.resolve(p);
+  if (normalized.startsWith('\\\\?\\')) return normalized;
+  if (normalized.startsWith('\\\\')) {
+    return '\\\\?\\UNC\\' + normalized.substring(2);
+  }
+  return '\\\\?\\' + normalized;
+}
 
 const app = express();
 const PORT = process.env.PORT || 8282;
@@ -69,6 +81,7 @@ app.get('/api/config', (req, res) => {
   res.json({
     sources: config.sources,
     destination: config.destination,
+    deviceIdentifier: config.deviceIdentifier || os.hostname(),
     nasUsername: config.nasUsername,
     hasPassword: !!config.nasPassword,
     schedule: config.schedule,
@@ -78,11 +91,12 @@ app.get('/api/config', (req, res) => {
 
 // 3. Save configuration
 app.post('/api/config', (req, res) => {
-  const { sources, destination, nasUsername, nasPasswordDecrypted, schedule, retention } = req.body;
+  const { sources, destination, deviceIdentifier, nasUsername, nasPasswordDecrypted, schedule, retention } = req.body;
 
   const updates = {};
   if (sources !== undefined) updates.sources = sources;
   if (destination !== undefined) updates.destination = destination;
+  if (deviceIdentifier !== undefined) updates.deviceIdentifier = deviceIdentifier;
   if (nasUsername !== undefined) updates.nasUsername = nasUsername;
   if (schedule !== undefined) updates.schedule = schedule;
   if (retention !== undefined) updates.retention = parseInt(retention, 10) || 5;
@@ -259,7 +273,7 @@ app.post('/api/restore', async (req, res) => {
     }
 
     // Check custom path validity if not restoring to original
-    if (!restoreToOriginal && (!customPath || !fs.existsSync(customPath))) {
+    if (!restoreToOriginal && (!customPath || !fs.existsSync(toLongPath(customPath)))) {
       return res.status(400).json({ success: false, message: 'Valid custom restoration directory path is required.' });
     }
 
@@ -294,8 +308,8 @@ app.post('/api/restore', async (req, res) => {
 
           if (targetPath) {
             // Ensure target directory exists
-            fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-            fs.copyFileSync(physicalPath, targetPath);
+            fs.mkdirSync(toLongPath(path.dirname(targetPath)), { recursive: true });
+            fs.copyFileSync(toLongPath(physicalPath), toLongPath(targetPath));
             restoredItems.push(fileRelPath);
           }
         }
@@ -315,8 +329,8 @@ app.post('/api/restore', async (req, res) => {
         }
 
         if (targetPath) {
-          fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-          fs.copyFileSync(physicalPath, targetPath);
+          fs.mkdirSync(toLongPath(path.dirname(targetPath)), { recursive: true });
+          fs.copyFileSync(toLongPath(physicalPath), toLongPath(targetPath));
           restoredItems.push(fileRelPath);
         }
       }

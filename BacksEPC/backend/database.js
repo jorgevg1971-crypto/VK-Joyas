@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const os = require('os');
 
 // File paths
 const DATA_DIR = path.join(__dirname, 'data');
@@ -25,6 +26,7 @@ if (!fs.existsSync(MANIFESTS_DIR)) {
 const DEFAULT_CONFIG = {
   sources: [],
   destination: '',
+  deviceIdentifier: os.hostname(),
   nasUsername: '',
   nasPassword: '', // Saved encrypted
   schedule: {

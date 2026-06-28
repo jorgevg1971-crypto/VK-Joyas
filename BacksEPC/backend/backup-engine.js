@@ -6,6 +6,17 @@ const vssManager = require('./vss-manager');
 
 let abortRequested = false;
 
+// Convert path to Windows long path format (supports up to 32,767 characters)
+function toLongPath(p) {
+  if (!p) return p;
+  const normalized = path.resolve(p);
+  if (normalized.startsWith('\\\\?\\')) return normalized;
+  if (normalized.startsWith('\\\\')) {
+    return '\\\\?\\UNC\\' + normalized.substring(2);
+  }
+  return '\\\\?\\' + normalized;
+}
+
 // In-memory status tracker for the UI
 let currentJobStatus = {
   status: 'idle', // 'idle', 'scanning', 'copying', 'cleaning', 'failed', 'success'
@@ -26,12 +37,12 @@ let currentJobStatus = {
  */
 function scanDirectory(dirPath, rootPrefix, fileList = []) {
   try {
-    const files = fs.readdirSync(dirPath);
+    const files = fs.readdirSync(toLongPath(dirPath));
     for (const file of files) {
       const absPath = path.join(dirPath, file);
       let stat;
       try {
-        stat = fs.statSync(absPath);
+        stat = fs.statSync(toLongPath(absPath));
       } catch (e) {
         // Skip files that can't be read/accessed (e.g. system locked files)
         continue;
@@ -60,20 +71,20 @@ function scanDirectory(dirPath, rootPrefix, fileList = []) {
 function copyFileWithProgress(src, dest) {
   // Ensure destination folder exists
   const destDir = path.dirname(dest);
-  if (!fs.existsSync(destDir)) {
-    fs.mkdirSync(destDir, { recursive: true });
+  if (!fs.existsSync(toLongPath(destDir))) {
+    fs.mkdirSync(toLongPath(destDir), { recursive: true });
   }
 
   return new Promise((resolve, reject) => {
-    const rd = fs.createReadStream(src);
-    const wr = fs.createWriteStream(dest);
+    const rd = fs.createReadStream(toLongPath(src));
+    const wr = fs.createWriteStream(toLongPath(dest));
 
     rd.on('error', reject);
     wr.on('error', reject);
     wr.on('finish', () => {
       // Update bytes copied
       try {
-        const stat = fs.statSync(src);
+        const stat = fs.statSync(toLongPath(src));
         currentJobStatus.progress.bytesCopied += stat.size;
       } catch (e) {}
       resolve();
@@ -180,12 +191,14 @@ async function runBackup(requestedType = null) {
     currentJobStatus.type = backupType;
     db.updateRun(runId, { type: backupType });
 
+    const deviceIdentifier = config.deviceIdentifier || require('os').hostname();
     const folderName = `backup_${dateStr}_${backupType}`;
-    const destinationFolder = path.join(config.destination, folderName);
+    const destinationFolder = path.join(config.destination, deviceIdentifier, folderName);
+    const backupFolderRel = deviceIdentifier + '/' + folderName;
 
     // Create destination folder
-    if (!fs.existsSync(destinationFolder)) {
-      fs.mkdirSync(destinationFolder, { recursive: true });
+    if (!fs.existsSync(toLongPath(destinationFolder))) {
+      fs.mkdirSync(toLongPath(destinationFolder), { recursive: true });
     }
 
     // 3. Scan Source Files
@@ -255,7 +268,7 @@ async function runBackup(requestedType = null) {
         manifest[file.relPath] = {
           size: file.size,
           mtime: file.mtime,
-          backupFolder: folderName // points to this backup folder
+          backupFolder: backupFolderRel // points to this backup folder inside device subfolder
         };
         filesCopied++;
         bytesCopied += file.size;
@@ -365,13 +378,15 @@ async function runRetentionCleanup(config, currentFullRunId) {
     
     console.log(`Retention: Deleting ${runsToDelete.length} old backup runs.`);
 
+    const deviceIdentifier = config.deviceIdentifier || require('os').hostname();
+
     for (const oldRun of runsToDelete) {
-      const folderToDelete = path.join(config.destination, oldRun.folderName);
+      const folderToDelete = path.join(config.destination, deviceIdentifier, oldRun.folderName);
       
       // Delete the physical directory on NAS
-      if (fs.existsSync(folderToDelete)) {
+      if (fs.existsSync(toLongPath(folderToDelete))) {
         try {
-          fs.rmSync(folderToDelete, { recursive: true, force: true });
+          fs.rmSync(toLongPath(folderToDelete), { recursive: true, force: true });
           console.log(`Retention: Deleted folder ${folderToDelete}`);
         } catch (e) {
           console.error(`Retention: Failed to delete physical folder ${folderToDelete}:`, e.message);
