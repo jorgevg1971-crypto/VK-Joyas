@@ -47,6 +47,13 @@ function App() {
   const [newMachineIp, setNewMachineIp] = useState('');
   const [machinesStatus, setMachinesStatus] = useState({});
   const [isConsolidating, setIsConsolidating] = useState({});
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
+  const [hasAdminPassword, setHasAdminPassword] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalType, setAuthModalType] = useState('login'); // 'login' or 'set'
+  const [authError, setAuthError] = useState('');
 
   // Restore explorer state
   const [selectedRun, setSelectedRun] = useState(null);
@@ -150,21 +157,87 @@ function App() {
     }
   }, [status?.currentJob?.status]);
 
-  // Fetch network machines on mount
-  useEffect(() => {
-    fetchNetworkMachines();
-  }, []);
-
   // Poll remote machines when network tab is active
   useEffect(() => {
     if (activeTab === 'network') {
+      fetchNetworkMachines();
       fetchRemoteStatuses();
       const interval = setInterval(() => {
         fetchRemoteStatuses();
       }, 5000);
       return () => clearInterval(interval);
     }
-  }, [activeTab, networkMachines]);
+  }, [activeTab, networkMachines, adminPassword]);
+
+  const handleNetworkTabClick = async () => {
+    try {
+      const res = await fetch('/api/network/auth/check');
+      const data = await res.json();
+      setHasAdminPassword(data.hasPassword);
+      
+      if (!data.hasPassword) {
+        setAuthModalType('set');
+        setIsAuthModalOpen(true);
+        setAuthError('');
+      } else if (!isAdminAuthenticated) {
+        setAuthModalType('login');
+        setIsAuthModalOpen(true);
+        setAuthError('');
+      } else {
+        setActiveTab('network');
+      }
+    } catch (err) {
+      console.error('Error checking auth:', err);
+    }
+  };
+
+  const handleSetAdminPassword = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    try {
+      const res = await fetch('/api/network/auth/set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: adminPasswordInput })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAdminPassword(adminPasswordInput);
+        setIsAdminAuthenticated(true);
+        setIsAuthModalOpen(false);
+        setAdminPasswordInput('');
+        setActiveTab('network');
+      } else {
+        setAuthError(data.message || 'Error al guardar contraseña.');
+      }
+    } catch (err) {
+      setAuthError('Error de conexión.');
+    }
+  };
+
+  const handleLoginAdminPassword = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    try {
+      const res = await fetch('/api/network/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: adminPasswordInput })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAdminPassword(adminPasswordInput);
+        setIsAdminAuthenticated(true);
+        setIsAuthModalOpen(false);
+        setAdminPasswordInput('');
+        setActiveTab('network');
+      } else {
+        setAuthError(data.message || 'Contraseña incorrecta.');
+      }
+    } catch (err) {
+      setAuthError('Error de conexión.');
+    }
+  };
 
   const fetchStatus = async () => {
     try {
@@ -178,7 +251,9 @@ function App() {
 
   const fetchNetworkMachines = async () => {
     try {
-      const res = await fetch('/api/network/machines');
+      const res = await fetch('/api/network/machines', {
+        headers: { 'x-admin-password': adminPassword }
+      });
       const data = await res.json();
       setNetworkMachines(data);
     } catch (e) {
@@ -190,7 +265,10 @@ function App() {
     try {
       const res = await fetch('/api/network/machines', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-password': adminPassword
+        },
         body: JSON.stringify({ machines: list })
       });
       const data = await res.json();
@@ -224,7 +302,10 @@ function App() {
     try {
       const res = await fetch('/api/network/machines/remove', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-password': adminPassword
+        },
         body: JSON.stringify({ ip })
       });
       const data = await res.json();
@@ -254,7 +335,10 @@ function App() {
       try {
         const res = await fetch('/api/network/proxy', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-admin-password': adminPassword
+          },
           body: JSON.stringify({
             ip,
             endpoint: '/api/status',
@@ -287,7 +371,10 @@ function App() {
     try {
       const res = await fetch('/api/network/proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-password': adminPassword
+        },
         body: JSON.stringify({
           ip,
           endpoint: '/api/backup',
@@ -313,7 +400,10 @@ function App() {
     try {
       const res = await fetch('/api/network/proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-password': adminPassword
+        },
         body: JSON.stringify({
           ip,
           endpoint: '/api/backup/cancel',
@@ -338,7 +428,10 @@ function App() {
     try {
       const res = await fetch('/api/network/proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-password': adminPassword
+        },
         body: JSON.stringify({
           ip,
           endpoint: '/api/backup/consolidate',
@@ -768,7 +861,7 @@ function App() {
           </button>
           <button 
             className={`nav-tab ${activeTab === 'network' ? 'active' : ''}`}
-            onClick={() => setActiveTab('network')}
+            onClick={handleNetworkTabClick}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             Consola de Red
@@ -1920,6 +2013,68 @@ function App() {
                 Seleccionar Carpeta
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADMINISTRATOR AUTH MODAL */}
+      {isAuthModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '400px' }}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600 }}>
+                {authModalType === 'set' ? 'Definir Contraseña de Administración' : 'Acceso Restringido'}
+              </h3>
+              <button 
+                type="button" 
+                className="close-modal-btn" 
+                onClick={() => setIsAuthModalOpen(false)}
+                style={{ fontSize: '1.5rem', lineHeight: 1 }}
+              >
+                &times;
+              </button>
+            </div>
+            
+            <form onSubmit={authModalType === 'set' ? handleSetAdminPassword : handleLoginAdminPassword}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem 0' }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  {authModalType === 'set' 
+                    ? 'Establece una contraseña de administrador para proteger el acceso a la Consola de Red. Esta contraseña se guardará cifrada.'
+                    : 'Se requiere la contraseña de administrador para ingresar a la Consola de Red y controlar los equipos remotos.'}
+                </p>
+                
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label>Contraseña de Administrador</label>
+                  <input
+                    type="password"
+                    placeholder="Ingresa la contraseña"
+                    value={adminPasswordInput}
+                    onChange={(e) => setAdminPasswordInput(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+                
+                {authError && (
+                  <div style={{ fontSize: '0.8rem', color: 'var(--accent-red)', fontWeight: 600 }}>
+                    ❌ {authError}
+                  </div>
+                )}
+              </div>
+              
+              <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={() => setIsAuthModalOpen(false)}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  {authModalType === 'set' ? 'Guardar y Entrar' : 'Verificar y Entrar'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

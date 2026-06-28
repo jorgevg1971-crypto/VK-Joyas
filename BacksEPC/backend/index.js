@@ -457,8 +457,52 @@ app.post('/api/backup/consolidate', async (req, res) => {
   }
 });
 
+// --- ADMIN AUTHENTICATION MIDDLEWARE ---
+function checkAdminAuth(req, res, next) {
+  const config = db.getConfig();
+  if (!config.adminPassword) {
+    return next(); // If no password is set yet, allow access to configure it
+  }
+  const clientPassword = req.headers['x-admin-password'];
+  if (clientPassword === config.adminPasswordDecrypted) {
+    return next();
+  }
+  res.status(401).json({ success: false, message: 'Contraseña de administrador inválida.' });
+}
+
+// 13. Check if administrator password is set
+app.get('/api/network/auth/check', (req, res) => {
+  const config = db.getConfig();
+  res.json({ hasPassword: !!config.adminPassword });
+});
+
+// 14. Set administrator password
+app.post('/api/network/auth/set', (req, res) => {
+  const { password } = req.body;
+  if (!password) {
+    return res.status(400).json({ success: false, message: 'Se requiere una contraseña.' });
+  }
+  const success = db.saveConfig({ adminPasswordDecrypted: password });
+  if (success) {
+    res.json({ success: true, message: 'Contraseña de administrador establecida.' });
+  } else {
+    res.status(500).json({ success: false, message: 'No se pudo guardar la contraseña.' });
+  }
+});
+
+// 15. Validate administrator password (login)
+app.post('/api/network/auth/login', (req, res) => {
+  const { password } = req.body;
+  const config = db.getConfig();
+  if (password === config.adminPasswordDecrypted) {
+    res.json({ success: true, message: 'Autenticación exitosa.' });
+  } else {
+    res.status(401).json({ success: false, message: 'Contraseña incorrecta.' });
+  }
+});
+
 // 10. Get list of monitored network machines (merges local manual list and shared NAS auto list)
-app.get('/api/network/machines', async (req, res) => {
+app.get('/api/network/machines', checkAdminAuth, async (req, res) => {
   const localMachines = getNetworkMachines();
   const config = db.getConfig();
   let sharedMachines = [];
@@ -493,7 +537,7 @@ app.get('/api/network/machines', async (req, res) => {
 });
 
 // 11. Save list of monitored network machines
-app.post('/api/network/machines', (req, res) => {
+app.post('/api/network/machines', checkAdminAuth, (req, res) => {
   const { machines } = req.body;
   if (!machines || !Array.isArray(machines)) {
     return res.status(400).json({ success: false, message: 'Se requiere una lista de máquinas (IPs).' });
@@ -507,7 +551,7 @@ app.post('/api/network/machines', (req, res) => {
 });
 
 // 11b. Remove machine from both local list and shared list on NAS
-app.post('/api/network/machines/remove', async (req, res) => {
+app.post('/api/network/machines/remove', checkAdminAuth, async (req, res) => {
   const { ip } = req.body;
   if (!ip) {
     return res.status(400).json({ success: false, message: 'ip es requerido.' });
@@ -549,7 +593,7 @@ app.post('/api/network/machines/remove', async (req, res) => {
 });
 
 // 12. Proxy requests to remote machines (bypasses CORS restrictions)
-app.post('/api/network/proxy', async (req, res) => {
+app.post('/api/network/proxy', checkAdminAuth, async (req, res) => {
   const { ip, endpoint, method, payload } = req.body;
   if (!ip || !endpoint) {
     return res.status(400).json({ success: false, message: 'ip y endpoint son requeridos.' });

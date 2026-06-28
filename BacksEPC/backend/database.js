@@ -29,6 +29,7 @@ const DEFAULT_CONFIG = {
   deviceIdentifier: os.hostname(),
   nasUsername: '',
   nasPassword: '', // Saved encrypted
+  adminPassword: '', // Saved encrypted
   schedule: {
     type: 'interval_days', // 'days_of_week' or 'interval_days'
     daysOfWeek: [1, 2, 3, 4, 5], // Mon-Fri
@@ -82,6 +83,11 @@ const db = {
       } else {
         config.nasPasswordDecrypted = '';
       }
+      if (config.adminPassword) {
+        config.adminPasswordDecrypted = decrypt(config.adminPassword);
+      } else {
+        config.adminPasswordDecrypted = '';
+      }
       return config;
     } catch (err) {
       console.error('Error reading config:', err);
@@ -104,8 +110,17 @@ const db = {
         }
       }
       
+      if (configToSave.adminPasswordDecrypted !== undefined) {
+        if (configToSave.adminPasswordDecrypted) {
+          configToSave.adminPassword = encrypt(configToSave.adminPasswordDecrypted);
+        } else {
+          configToSave.adminPassword = '';
+        }
+      }
+      
       // Remove runtime decrypted property before saving
       delete configToSave.nasPasswordDecrypted;
+      delete configToSave.adminPasswordDecrypted;
 
       fs.writeFileSync(CONFIG_FILE, JSON.stringify(configToSave, null, 2), 'utf8');
       return true;
