@@ -160,7 +160,6 @@ function App() {
   // Poll remote machines when network tab is active
   useEffect(() => {
     if (activeTab === 'network') {
-      fetchNetworkMachines();
       fetchRemoteStatuses();
       const interval = setInterval(() => {
         fetchRemoteStatuses();
@@ -184,6 +183,7 @@ function App() {
         setIsAuthModalOpen(true);
         setAuthError('');
       } else {
+        fetchNetworkMachines(adminPassword);
         setActiveTab('network');
       }
     } catch (err) {
@@ -205,6 +205,7 @@ function App() {
         setAdminPassword(adminPasswordInput);
         setIsAdminAuthenticated(true);
         setIsAuthModalOpen(false);
+        fetchNetworkMachines(adminPasswordInput);
         setAdminPasswordInput('');
         setActiveTab('network');
       } else {
@@ -229,6 +230,7 @@ function App() {
         setAdminPassword(adminPasswordInput);
         setIsAdminAuthenticated(true);
         setIsAuthModalOpen(false);
+        fetchNetworkMachines(adminPasswordInput);
         setAdminPasswordInput('');
         setActiveTab('network');
       } else {
@@ -249,10 +251,11 @@ function App() {
     }
   };
 
-  const fetchNetworkMachines = async () => {
+  const fetchNetworkMachines = async (pwdOverride) => {
+    const pwd = pwdOverride !== undefined ? pwdOverride : adminPassword;
     try {
       const res = await fetch('/api/network/machines', {
-        headers: { 'x-admin-password': adminPassword }
+        headers: { 'x-admin-password': pwd }
       });
       const data = await res.json();
       setNetworkMachines(data);
