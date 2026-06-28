@@ -606,12 +606,15 @@ app.post('/api/network/proxy', checkAdminAuth, async (req, res) => {
   remoteUrl += endpoint;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 3000); // 3-second connection timeout
+  const timeoutId = setTimeout(() => controller.abort(), 6000); // 6-second connection timeout (more forgiving for Wi-Fi latency)
 
   try {
     const options = {
       method: method || 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Connection': 'close' // Prevents socket keep-alive reuse issue in undici/fetch client
+      },
       signal: controller.signal
     };
     if (payload && (options.method === 'POST' || options.method === 'PUT')) {
@@ -633,9 +636,13 @@ app.post('/api/network/proxy', checkAdminAuth, async (req, res) => {
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      return res.status(504).json({ success: false, message: 'La máquina remota no respondió (Timeout de 3s).' });
+      return res.status(504).json({ success: false, message: 'La máquina remota no respondió (Timeout de 6s).' });
     }
-    res.status(502).json({ success: false, message: `Error al comunicar con la máquina remota: ${err.message}` });
+    const isFetchFailed = err.message && err.message.includes('fetch failed');
+    const displayMsg = isFetchFailed 
+      ? 'La máquina remota está apagada o fuera de la red local.' 
+      : err.message;
+    res.status(502).json({ success: false, message: `Sin conexión: ${displayMsg}` });
   }
 });
 

@@ -1595,7 +1595,7 @@ function App() {
                         const loading = statusInfo?.loading;
                         const error = statusInfo?.error;
                         const data = statusInfo?.data;
-                        const deviceId = data?.deviceIdentifier || 'Cargando...';
+                        const deviceId = data?.deviceIdentifier || (error ? 'Desconectado' : 'Cargando...');
                         const currentJob = data?.currentJob;
                         const jobStatus = currentJob?.status;
                         const lastRun = data?.lastRunTimestamp;
