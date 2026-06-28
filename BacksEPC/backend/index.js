@@ -348,6 +348,110 @@ app.post('/api/restore', async (req, res) => {
   }
 });
 
+const NETWORK_MACHINES_FILE = path.join(__dirname, 'data', 'network-machines.json');
+
+function getNetworkMachines() {
+  try {
+    if (!fs.existsSync(NETWORK_MACHINES_FILE)) {
+      fs.writeFileSync(NETWORK_MACHINES_FILE, JSON.stringify([]), 'utf8');
+    }
+    const content = fs.readFileSync(NETWORK_MACHINES_FILE, 'utf8');
+    return JSON.parse(content);
+  } catch (e) {
+    console.error('Error reading network machines:', e);
+    return [];
+  }
+}
+
+function saveNetworkMachines(machines) {
+  try {
+    fs.writeFileSync(NETWORK_MACHINES_FILE, JSON.stringify(machines, null, 2), 'utf8');
+    return true;
+  } catch (e) {
+    console.error('Error saving network machines:', e);
+    return false;
+  }
+}
+
+// 9. Consolidate and zip backup run
+app.post('/api/backup/consolidate', async (req, res) => {
+  const { runId } = req.body;
+  if (!runId) {
+    return res.status(400).json({ success: false, message: 'runId es requerido.' });
+  }
+
+  try {
+    backupEngine.consolidateBackup(runId)
+      .then(result => {
+        console.log(`[Consolidation API] Successfully consolidated run ${runId}: ${result.zipName}`);
+      })
+      .catch(err => {
+        console.error(`[Consolidation API] Background consolidation failed for run ${runId}:`, err.message);
+      });
+
+    res.json({ success: true, message: 'La consolidación y compresión ha iniciado en segundo plano. El archivo ZIP se creará en la carpeta de este equipo en el NAS.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 10. Get list of monitored network machines
+app.get('/api/network/machines', (req, res) => {
+  res.json(getNetworkMachines());
+});
+
+// 11. Save list of monitored network machines
+app.post('/api/network/machines', (req, res) => {
+  const { machines } = req.body;
+  if (!machines || !Array.isArray(machines)) {
+    return res.status(400).json({ success: false, message: 'Se requiere una lista de máquinas (IPs).' });
+  }
+  const success = saveNetworkMachines(machines);
+  if (success) {
+    res.json({ success: true, message: 'Lista de máquinas de red actualizada.' });
+  } else {
+    res.status(500).json({ success: false, message: 'No se pudo guardar la lista.' });
+  }
+});
+
+// 12. Proxy requests to remote machines (bypasses CORS restrictions)
+app.post('/api/network/proxy', async (req, res) => {
+  const { ip, endpoint, method, payload } = req.body;
+  if (!ip || !endpoint) {
+    return res.status(400).json({ success: false, message: 'ip y endpoint son requeridos.' });
+  }
+
+  let remoteUrl = ip.startsWith('http') ? ip : `http://${ip}`;
+  if (!/:[0-9]+/.test(remoteUrl.replace('http://', '').replace('https://', ''))) {
+    remoteUrl += ':8282';
+  }
+  remoteUrl += endpoint;
+
+  try {
+    const options = {
+      method: method || 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    };
+    if (payload && (options.method === 'POST' || options.method === 'PUT')) {
+      options.body = JSON.stringify(payload);
+    }
+
+    const remoteRes = await fetch(remoteUrl, options);
+    const text = await remoteRes.text();
+    
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      data = { rawText: text };
+    }
+
+    res.status(remoteRes.status).json(data);
+  } catch (err) {
+    res.status(502).json({ success: false, message: `Error al comunicar con la máquina remota: ${err.message}` });
+  }
+});
+
 // Helper to get active Windows drives
 function getLogicalDrives() {
   const drives = [];

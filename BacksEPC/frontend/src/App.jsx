@@ -41,6 +41,12 @@ function App() {
   const [saveStatus, setSaveStatus] = useState({ success: null, message: '' });
   const [testConnectionStatus, setTestConnectionStatus] = useState({ success: null, message: '', loading: false });
   const [deviceIdentifier, setDeviceIdentifier] = useState('');
+  
+  // Network Console state
+  const [networkMachines, setNetworkMachines] = useState([]);
+  const [newMachineIp, setNewMachineIp] = useState('');
+  const [machinesStatus, setMachinesStatus] = useState({});
+  const [isConsolidating, setIsConsolidating] = useState({});
 
   // Restore explorer state
   const [selectedRun, setSelectedRun] = useState(null);
@@ -144,6 +150,22 @@ function App() {
     }
   }, [status?.currentJob?.status]);
 
+  // Fetch network machines on mount
+  useEffect(() => {
+    fetchNetworkMachines();
+  }, []);
+
+  // Poll remote machines when network tab is active
+  useEffect(() => {
+    if (activeTab === 'network') {
+      fetchRemoteStatuses();
+      const interval = setInterval(() => {
+        fetchRemoteStatuses();
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, networkMachines]);
+
   const fetchStatus = async () => {
     try {
       const res = await fetch('/api/status');
@@ -151,6 +173,172 @@ function App() {
       setStatus(data);
     } catch (e) {
       console.error('Error fetching status:', e);
+    }
+  };
+
+  const fetchNetworkMachines = async () => {
+    try {
+      const res = await fetch('/api/network/machines');
+      const data = await res.json();
+      setNetworkMachines(data);
+    } catch (e) {
+      console.error('Error fetching network machines:', e);
+    }
+  };
+
+  const saveNetworkMachinesList = async (list) => {
+    try {
+      const res = await fetch('/api/network/machines', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ machines: list })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNetworkMachines(list);
+      }
+    } catch (e) {
+      console.error('Error saving network machines:', e);
+    }
+  };
+
+  const addNetworkMachine = (e) => {
+    e.preventDefault();
+    if (!newMachineIp) return;
+    
+    const cleaned = newMachineIp.trim();
+    if (networkMachines.includes(cleaned)) {
+      alert('Esta máquina ya está registrada.');
+      return;
+    }
+    const newList = [...networkMachines, cleaned];
+    saveNetworkMachinesList(newList);
+    setNewMachineIp('');
+  };
+
+  const removeNetworkMachine = (ip) => {
+    if (!window.confirm(`¿Estás seguro de que deseas eliminar la máquina ${ip} de la consola de red?`)) {
+      return;
+    }
+    const newList = networkMachines.filter(item => item !== ip);
+    saveNetworkMachinesList(newList);
+    
+    const updatedStatus = { ...machinesStatus };
+    delete updatedStatus[ip];
+    setMachinesStatus(updatedStatus);
+  };
+
+  const fetchRemoteStatuses = async () => {
+    networkMachines.forEach(async (ip) => {
+      if (!machinesStatus[ip]) {
+        setMachinesStatus(prev => ({
+          ...prev,
+          [ip]: { loading: true, data: null, error: null }
+        }));
+      }
+
+      try {
+        const res = await fetch('/api/network/proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ip,
+            endpoint: '/api/status',
+            method: 'GET'
+          })
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+          setMachinesStatus(prev => ({
+            ...prev,
+            [ip]: { loading: false, data, error: null }
+          }));
+        } else {
+          setMachinesStatus(prev => ({
+            ...prev,
+            [ip]: { loading: false, data: null, error: data.message || 'Error de conexión remota.' }
+          }));
+        }
+      } catch (err) {
+        setMachinesStatus(prev => ({
+          ...prev,
+          [ip]: { loading: false, data: null, error: 'Sin conexión a la red local.' }
+        }));
+      }
+    });
+  };
+
+  const triggerRemoteBackup = async (ip, type) => {
+    try {
+      const res = await fetch('/api/network/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ip,
+          endpoint: '/api/backup',
+          method: 'POST',
+          payload: { type }
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        fetchRemoteStatuses();
+      } else {
+        alert(`Error al iniciar backup remoto: ${data.message}`);
+      }
+    } catch (e) {
+      alert(`Error al conectar con la máquina remota: ${e.message}`);
+    }
+  };
+
+  const cancelRemoteBackup = async (ip) => {
+    if (!window.confirm('¿Estás seguro de que deseas cancelar la copia de seguridad de esta máquina remota?')) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/network/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ip,
+          endpoint: '/api/backup/cancel',
+          method: 'POST'
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        fetchRemoteStatuses();
+      } else {
+        alert(`Error al cancelar backup remoto: ${data.message}`);
+      }
+    } catch (e) {
+      alert(`Error al conectar con la máquina remota: ${e.message}`);
+    }
+  };
+
+  const handleConsolidateBackup = async (runId) => {
+    if (!window.confirm('¿Estás seguro de que deseas consolidar y comprimir en ZIP todas las copias incrementales hasta esta versión? Esto puede tomar algunos minutos dependiendo del volumen de datos.')) {
+      return;
+    }
+
+    setIsConsolidating(prev => ({ ...prev, [runId]: true }));
+    try {
+      const res = await fetch('/api/backup/consolidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ runId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+      } else {
+        alert(`Error al consolidar: ${data.message}`);
+      }
+    } catch (err) {
+      alert('Error de red al intentar consolidar el backup.');
+    } finally {
+      setIsConsolidating(prev => ({ ...prev, [runId]: false }));
     }
   };
 
@@ -537,6 +725,13 @@ function App() {
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
             Restaurar Archivos
+          </button>
+          <button 
+            className={`nav-tab ${activeTab === 'network' ? 'active' : ''}`}
+            onClick={() => setActiveTab('network')}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Consola de Red
           </button>
         </nav>
       </header>
@@ -1013,10 +1208,11 @@ function App() {
                     </div>
                   ) : (
                     history.filter(r => r.status === 'success').map((run) => (
-                      <button
+                      <div
                         key={run.id}
                         className={`run-select-item ${selectedRun?.id === run.id ? 'selected' : ''}`}
                         onClick={() => selectRunForRestore(run)}
+                        style={{ cursor: 'pointer', display: 'block', textAlign: 'left' }}
                       >
                         <div className="run-select-title">
                           <span style={{ marginRight: '0.5rem' }}>
@@ -1024,10 +1220,32 @@ function App() {
                           </span>
                           {run.folderName}
                         </div>
-                        <div className="run-select-date">
-                          {formatDate(run.timestamp)} ({formatBytes(run.totalSize)})
+                        <div className="run-select-date" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>{formatDate(run.timestamp)} ({formatBytes(run.totalSize)})</span>
+                          
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleConsolidateBackup(run.id);
+                            }}
+                            disabled={isConsolidating[run.id]}
+                            style={{ 
+                              padding: '0.15rem 0.4rem', 
+                              fontSize: '0.7rem', 
+                              fontWeight: 600,
+                              backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                              color: 'var(--accent-blue)',
+                              border: '1px solid rgba(59, 130, 246, 0.3)',
+                              borderRadius: '0.25rem',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {isConsolidating[run.id] ? 'Consolidando...' : 'ZIP'}
+                          </button>
                         </div>
-                      </button>
+                      </div>
                     ))
                   )}
                 </div>
@@ -1185,6 +1403,177 @@ function App() {
                     Selecciona una copia en la lista de la izquierda para comenzar a explorar y restaurar.
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: NETWORK CONSOLE */}
+        {activeTab === 'network' && (
+          <div>
+            <div className="card" style={{ marginBottom: '1.5rem' }}>
+              <h3 className="card-title">Registrar Nueva Computadora</h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                Añade la dirección IP y el puerto de red de otra máquina cliente en tu oficina local que tenga instalado ePC Backups (ej: <code>192.168.1.102:8282</code> o <code>DESKTOP-CONTA:8282</code>).
+              </p>
+              
+              <form onSubmit={addNetworkMachine} style={{ display: 'flex', gap: '0.75rem' }}>
+                <input
+                  type="text"
+                  placeholder="Ej. 192.168.1.105:8282"
+                  value={newMachineIp}
+                  onChange={(e) => setNewMachineIp(e.target.value)}
+                  style={{ flex: 1, marginTop: 0 }}
+                  required
+                />
+                <button type="submit" className="btn btn-primary">
+                  Agregar Equipo
+                </button>
+              </form>
+            </div>
+
+            <div className="card">
+              <h3 className="card-title">Estado de la Red de Backups</h3>
+              <div className="table-container" style={{ marginTop: '1rem' }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Identificador / Dirección IP</th>
+                      <th>Estado Remoto</th>
+                      <th>Última Copia</th>
+                      <th>Progreso</th>
+                      <th>Acciones de Control Remoto</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {networkMachines.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '2rem 0' }}>
+                          Ninguna máquina remota registrada para monitorear.
+                        </td>
+                      </tr>
+                    ) : (
+                      networkMachines.map((ip) => {
+                        const statusInfo = machinesStatus[ip];
+                        
+                        return (
+                          <tr key={ip}>
+                            <td style={{ fontWeight: 600 }}>
+                              {statusInfo?.data?.deviceIdentifier || 'Cargando...'}
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 400, marginTop: '0.1rem' }}>
+                                {ip}
+                              </div>
+                            </td>
+                            <td>
+                              {statusInfo?.loading ? (
+                                <span style={{ color: 'var(--text-muted)' }}>Cargando estado...</span>
+                              ) : statusInfo?.error ? (
+                                <span className="badge badge-failed" title={statusInfo.error}>
+                                  ⚠️ Desconectado
+                                </span>
+                              ) : statusInfo?.data?.currentJob ? (
+                                <span className={`badge ${
+                                  statusInfo.data.currentJob.status === 'success' ? 'badge-success' :
+                                  statusInfo.data.currentJob.status === 'running' || statusInfo.data.currentJob.status === 'scanning' || statusInfo.data.currentJob.status === 'copying' || statusInfo.data.currentJob.status === 'cleaning' ? 'badge-running' : 
+                                  statusInfo.data.currentJob.status === 'idle' ? 'badge-secondary' : 'badge-failed'
+                                }`}>
+                                  {statusInfo.data.currentJob.status === 'idle' ? 'Listo (Listo)' :
+                                   statusInfo.data.currentJob.status === 'success' ? 'Completado' :
+                                   statusInfo.data.currentJob.status === 'scanning' ? 'Escaneando' :
+                                   statusInfo.data.currentJob.status === 'copying' ? 'Copiando' :
+                                   statusInfo.data.currentJob.status === 'cleaning' ? 'Limpiando' : 'Error'}
+                                </span>
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)' }}>-</span>
+                              )}
+                            </td>
+                            <td>
+                              {!statusInfo?.loading && !statusInfo?.error && statusInfo?.data?.lastRunTimestamp ? (
+                                formatDate(statusInfo.data.lastRunTimestamp)
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)' }}>Ninguna o desconocido</span>
+                              )}
+                            </td>
+                            <td>
+                              {!statusInfo?.loading && !statusInfo?.error && statusInfo?.data?.currentJob && statusInfo.data.currentJob.status !== 'idle' ? (
+                                <div style={{ minWidth: '120px' }}>
+                                  <div style={{ fontSize: '0.75rem', marginBottom: '0.2rem', wordBreak: 'break-all' }}>
+                                    {statusInfo.data.currentJob.progress?.currentFile || 'Iniciando...'}
+                                  </div>
+                                  <div className="progress-bar-bg" style={{ height: '6px' }}>
+                                    <div 
+                                      className="progress-bar-fill"
+                                      style={{ 
+                                        height: '6px',
+                                        width: `${statusInfo.data.currentJob.progress?.totalFiles > 0 
+                                          ? Math.round((statusInfo.data.currentJob.progress.processedFiles / statusInfo.data.currentJob.progress.totalFiles) * 100) 
+                                          : 0}%` 
+                                      }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)' }}>-</span>
+                              )}
+                            </td>
+                            <td>
+                              {!statusInfo?.loading && !statusInfo?.error ? (
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                  {statusInfo.data.currentJob && (
+                                    statusInfo.data.currentJob.status === 'scanning' || 
+                                    statusInfo.data.currentJob.status === 'copying' || 
+                                    statusInfo.data.currentJob.status === 'cleaning'
+                                  ) ? (
+                                    <button 
+                                      className="btn btn-danger" 
+                                      style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', fontWeight: 600 }}
+                                      onClick={() => cancelRemoteBackup(ip)}
+                                    >
+                                      Cancelar Copia
+                                    </button>
+                                  ) : (
+                                    <>
+                                      <button 
+                                        className="btn btn-secondary" 
+                                        style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', fontWeight: 600 }}
+                                        onClick={() => triggerRemoteBackup(ip, 'incremental')}
+                                      >
+                                        Incremental
+                                      </button>
+                                      <button 
+                                        className="btn btn-primary" 
+                                        style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', fontWeight: 600 }}
+                                        onClick={() => triggerRemoteBackup(ip, 'full')}
+                                      >
+                                        Completo
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              ) : statusInfo?.error ? (
+                                <span style={{ fontSize: '0.8rem', color: 'var(--accent-red)' }}>{statusInfo.error}</span>
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)' }}>-</span>
+                              )}
+                            </td>
+                            <td>
+                              <button 
+                                type="button"
+                                className="remove-folder-btn" 
+                                title="Eliminar máquina de la consola"
+                                onClick={() => removeNetworkMachine(ip)}
+                                style={{ padding: '0.2rem 0.5rem', fontSize: '1.2rem', lineHeight: 1 }}
+                              >
+                                &times;
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

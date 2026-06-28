@@ -3,6 +3,7 @@ const path = require('path');
 const nasConnector = require('./nas-connector');
 const db = require('./database');
 const vssManager = require('./vss-manager');
+const { execSync } = require('child_process');
 
 let abortRequested = false;
 
@@ -424,8 +425,90 @@ function cancelBackup() {
   return false;
 }
 
+async function consolidateBackup(runId) {
+  const config = db.getConfig();
+  const runs = db.getRuns();
+  const run = runs.find(r => r.id === runId);
+  if (!run) {
+    throw new Error('No se encontró el registro de la copia de seguridad.');
+  }
+
+  const manifest = db.getManifest(runId);
+  if (!manifest) {
+    throw new Error('No se encontró el manifiesto para esta copia de seguridad.');
+  }
+
+  // 1. Connect to NAS if it's a UNC path
+  if (config.destination.startsWith('\\\\')) {
+    await nasConnector.connect(config.destination, config.nasUsername, config.nasPasswordDecrypted);
+  }
+
+  const deviceIdentifier = config.deviceIdentifier || require('os').hostname();
+  const tempFolderName = `consolidate_temp_${runId}`;
+  const tempFolder = path.join(config.destination, deviceIdentifier, tempFolderName);
+  const zipName = `archive_${deviceIdentifier}_${run.folderName || runId}.zip`;
+  const zipPath = path.join(config.destination, deviceIdentifier, zipName);
+
+  console.log(`[Consolidation] Starting consolidation for run ${runId} into ${zipName}...`);
+
+  try {
+    // 2. Clean up any existing temp folder
+    if (fs.existsSync(toLongPath(tempFolder))) {
+      fs.rmSync(toLongPath(tempFolder), { recursive: true, force: true });
+    }
+
+    // 3. Create temp folder
+    fs.mkdirSync(toLongPath(tempFolder), { recursive: true });
+
+    // 4. Copy all files listed in the manifest
+    const fileRelPaths = Object.keys(manifest);
+    for (const relPath of fileRelPaths) {
+      const fileMeta = manifest[relPath];
+      const physicalPath = path.join(config.destination, fileMeta.backupFolder, relPath);
+      const targetPath = path.join(tempFolder, relPath);
+
+      // Ensure destination directories exist
+      fs.mkdirSync(toLongPath(path.dirname(targetPath)), { recursive: true });
+      
+      // Copy file
+      if (fs.existsSync(toLongPath(physicalPath))) {
+        fs.copyFileSync(toLongPath(physicalPath), toLongPath(targetPath));
+      } else {
+        console.warn(`[Consolidation] Warning: Physical file not found at ${physicalPath}`);
+      }
+    }
+
+    console.log(`[Consolidation] Reconstructed ${fileRelPaths.length} files. Compressing into ZIP...`);
+
+    // 5. Compress using tar.exe
+    const absTempFolder = path.resolve(tempFolder);
+    const absZipPath = path.resolve(zipPath);
+    
+    // Command: tar -a -cf "zipPath" -C "tempFolder" .
+    const command = `tar.exe -a -cf "${absZipPath}" -C "${absTempFolder}" .`;
+    execSync(command, { stdio: 'ignore' });
+
+    console.log(`[Consolidation] ZIP archive created successfully at ${zipPath}`);
+    return { success: true, zipName, zipPath };
+
+  } catch (err) {
+    console.error(`[Consolidation] Failed to consolidate backup:`, err.message);
+    throw err;
+  } finally {
+    // 6. Always clean up the temp directory
+    try {
+      if (fs.existsSync(toLongPath(tempFolder))) {
+        fs.rmSync(toLongPath(tempFolder), { recursive: true, force: true });
+      }
+    } catch (cleanErr) {
+      console.error(`[Consolidation] Clean up failed for ${tempFolder}:`, cleanErr.message);
+    }
+  }
+}
+
 module.exports = {
   runBackup,
   getStatus,
-  cancelBackup
+  cancelBackup,
+  consolidateBackup
 };
