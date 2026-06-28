@@ -236,11 +236,14 @@ app.get('/api/file-versions', (req, res) => {
 
 // 8. Restore files
 app.post('/api/restore', async (req, res) => {
-  const { runId, items, restoreToOriginal, customPath } = req.body;
+  const { runId, items, restoreAll, restoreToOriginal, customPath } = req.body;
   // items: array of objects { relPath: "...", isDirectory: boolean }
   
-  if (!runId || !items || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ success: false, message: 'runId and items array are required.' });
+  if (!runId) {
+    return res.status(400).json({ success: false, message: 'runId is required.' });
+  }
+  if (!restoreAll && (!items || !Array.isArray(items) || items.length === 0)) {
+    return res.status(400).json({ success: false, message: 'items array or restoreAll is required.' });
   }
 
   const config = db.getConfig();
@@ -261,8 +264,17 @@ app.post('/api/restore', async (req, res) => {
     }
 
     const restoredItems = [];
+    let itemsToRestore = items;
 
-    for (const item of items) {
+    if (restoreAll) {
+      // Reconstruct the full list of files to restore from manifest keys
+      itemsToRestore = Object.keys(manifest).map(f => ({
+        relPath: f,
+        isDirectory: false
+      }));
+    }
+
+    for (const item of itemsToRestore) {
       if (item.isDirectory) {
         // Find all files in the manifest that are inside this directory
         const dirPrefix = item.relPath.endsWith('/') ? item.relPath : item.relPath + '/';

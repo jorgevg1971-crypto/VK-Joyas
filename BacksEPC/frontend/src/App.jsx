@@ -46,6 +46,8 @@ function App() {
   const [manifestFiles, setManifestFiles] = useState([]);
   const [currentPath, setCurrentPath] = useState(''); // current folder in explorer
   const [selectedExplorerItem, setSelectedExplorerItem] = useState(null);
+  const [selectedExplorerItems, setSelectedExplorerItems] = useState([]);
+  const [isFullRestore, setIsFullRestore] = useState(false);
   const [selectedFileVersions, setSelectedFileVersions] = useState([]);
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
@@ -303,6 +305,8 @@ function App() {
     setSelectedRun(run);
     setCurrentPath('');
     setSelectedExplorerItem(null);
+    setSelectedExplorerItems([]);
+    setIsFullRestore(false);
     setRestoreMessage({ type: '', text: '' });
     try {
       const res = await fetch(`/api/browse?runId=${run.id}`);
@@ -369,13 +373,16 @@ function App() {
     if (item.isDirectory) {
       setCurrentPath(item.path);
       setSelectedExplorerItem(null);
+      setSelectedExplorerItems([]);
     } else {
+      setIsFullRestore(false);
       openFileVersions(item);
     }
   };
 
   const openFileVersions = async (item) => {
     setSelectedExplorerItem(item);
+    setIsFullRestore(false);
     try {
       const res = await fetch(`/api/file-versions?filePath=${encodeURIComponent(item.path)}`);
       const data = await res.json();
@@ -391,23 +398,72 @@ function App() {
     }
   };
 
+  const openFullRestoreModal = () => {
+    setIsFullRestore(true);
+    setSelectedExplorerItem(null);
+    setSelectedExplorerItems([]);
+    setRestoreMessage({ type: '', text: '' });
+    setIsVersionModalOpen(true);
+  };
+
+  const openMultiRestoreModal = () => {
+    setIsFullRestore(false);
+    setSelectedExplorerItem(null);
+    setRestoreMessage({ type: '', text: '' });
+    setIsVersionModalOpen(true);
+  };
+
+  const toggleItemSelection = (item) => {
+    const isSelected = selectedExplorerItems.some(i => i.path === item.path);
+    if (isSelected) {
+      setSelectedExplorerItems(selectedExplorerItems.filter(i => i.path !== item.path));
+    } else {
+      setSelectedExplorerItems([...selectedExplorerItems, item]);
+    }
+  };
+
+  const toggleSelectAllCurrent = () => {
+    const currentItems = getExplorerItems();
+    const allSelected = currentItems.every(item => selectedExplorerItems.some(i => i.path === item.path));
+    
+    if (allSelected) {
+      const currentPaths = currentItems.map(i => i.path);
+      setSelectedExplorerItems(selectedExplorerItems.filter(i => !currentPaths.includes(i.path)));
+    } else {
+      const itemsToAdd = currentItems.filter(item => !selectedExplorerItems.some(i => i.path === item.path));
+      setSelectedExplorerItems([...selectedExplorerItems, ...itemsToAdd]);
+    }
+  };
+
   const handleRestore = async () => {
-    if (!selectedExplorerItem) return;
     setIsRestoring(true);
     setRestoreMessage({ type: 'info', text: 'Iniciando restauración...' });
 
     try {
       const payload = {
-        runId: selectedVersion ? selectedVersion.runId : selectedRun.id,
-        items: [
+        runId: selectedRun.id,
+        restoreToOriginal: restoreMode === 'original',
+        customPath: restoreMode === 'custom' ? customRestorePath : ''
+      };
+
+      if (isFullRestore) {
+        payload.restoreAll = true;
+      } else if (selectedExplorerItems.length > 0) {
+        payload.items = selectedExplorerItems.map(item => ({
+          relPath: item.path,
+          isDirectory: item.isDirectory
+        }));
+      } else if (selectedExplorerItem) {
+        payload.runId = selectedVersion ? selectedVersion.runId : selectedRun.id;
+        payload.items = [
           {
             relPath: selectedExplorerItem.path,
             isDirectory: selectedExplorerItem.isDirectory
           }
-        ],
-        restoreToOriginal: restoreMode === 'original',
-        customPath: restoreMode === 'custom' ? customRestorePath : ''
-      };
+        ];
+      } else {
+        throw new Error('No hay elementos seleccionados para restaurar.');
+      }
 
       const res = await fetch('/api/restore', {
         method: 'POST',
@@ -418,12 +474,14 @@ function App() {
 
       if (data.success) {
         setRestoreMessage({ type: 'success', text: `Restauración exitosa: ${data.message}` });
-        setIsVersionModalOpen(false);
+        setTimeout(() => {
+          setIsVersionModalOpen(false);
+        }, 1500);
       } else {
         setRestoreMessage({ type: 'error', text: `Error: ${data.message}` });
       }
     } catch (err) {
-      setRestoreMessage({ type: 'error', text: 'Error de conexión con el servidor.' });
+      setRestoreMessage({ type: 'error', text: err.message || 'Error de conexión con el servidor.' });
     } finally {
       setIsRestoring(false);
     }
@@ -438,6 +496,7 @@ function App() {
       setCurrentPath(currentPath.substring(0, lastSlash));
     }
     setSelectedExplorerItem(null);
+    setSelectedExplorerItems([]);
   };
 
   const isJobRunning = status?.currentJob?.status === 'scanning' || 
@@ -961,9 +1020,9 @@ function App() {
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {selectedRun ? (
                   <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                    <div className="file-explorer-header">
+                    <div className="file-explorer-header" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
                       {/* Breadcrumbs */}
-                      <div className="breadcrumb">
+                      <div className="breadcrumb" style={{ marginRight: 'auto', marginBottom: 0 }}>
                         <span className="breadcrumb-item" onClick={() => setCurrentPath('')}>
                           Raíz
                         </span>
@@ -988,16 +1047,34 @@ function App() {
                         })}
                       </div>
 
-                      {currentPath !== '' && (
-                        <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }} onClick={navigateUp}>
-                          Volver Arriba
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <button 
+                          className="btn btn-success" 
+                          style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', fontWeight: 600 }}
+                          onClick={openFullRestoreModal}
+                        >
+                          Restaurar Copia Completa
                         </button>
-                      )}
+                        
+                        {currentPath !== '' && (
+                          <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }} onClick={navigateUp}>
+                            Volver Arriba
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="file-list-container" style={{ flex: 1 }}>
                       {/* Table headers */}
                       <div className="file-explorer-item" style={{ fontWeight: 600, borderBottom: '2px solid var(--border-color)', cursor: 'default' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                          <input 
+                            type="checkbox"
+                            checked={getExplorerItems().length > 0 && getExplorerItems().every(item => selectedExplorerItems.some(i => i.path === item.path))}
+                            onChange={toggleSelectAllCurrent}
+                            style={{ cursor: 'pointer' }}
+                          />
+                        </div>
                         <div></div>
                         <div>Nombre</div>
                         <div>Tamaño</div>
@@ -1010,51 +1087,81 @@ function App() {
                           Carpeta vacía.
                         </div>
                       ) : (
-                        getExplorerItems().map((item, idx) => (
-                          <div 
-                            key={idx} 
-                            className={`file-explorer-item ${selectedExplorerItem?.path === item.path ? 'selected' : ''}`}
-                            onDoubleClick={() => handleExplorerDoubleClick(item)}
-                            onClick={() => !item.isDirectory && setSelectedExplorerItem(item)}
-                          >
-                            <div className="file-icon">
-                              {item.isDirectory ? '📁' : '📄'}
+                        getExplorerItems().map((item, idx) => {
+                          const isSelected = selectedExplorerItems.some(i => i.path === item.path);
+                          return (
+                            <div 
+                              key={idx} 
+                              className={`file-explorer-item ${selectedExplorerItem?.path === item.path || isSelected ? 'selected' : ''}`}
+                              onDoubleClick={() => handleExplorerDoubleClick(item)}
+                              onClick={() => setSelectedExplorerItem(item)}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                <input 
+                                  type="checkbox" 
+                                  checked={isSelected}
+                                  onChange={() => toggleItemSelection(item)}
+                                  style={{ cursor: 'pointer' }}
+                                />
+                              </div>
+                              <div className="file-icon">
+                                {item.isDirectory ? '📁' : '📄'}
+                              </div>
+                              <div className="file-name" style={{ fontWeight: item.isDirectory ? 600 : 400 }}>
+                                {item.name}
+                              </div>
+                              <div className="file-size">
+                                {item.isDirectory ? '-' : formatBytes(item.size)}
+                              </div>
+                              <div className="file-date">
+                                {item.isDirectory ? '-' : formatDate(item.mtime)}
+                              </div>
+                              <div>
+                                {!item.isDirectory && (
+                                  <button 
+                                    className="btn btn-secondary" 
+                                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openFileVersions(item);
+                                    }}
+                                  >
+                                    Versiones
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                            <div className="file-name" style={{ fontWeight: item.isDirectory ? 600 : 400 }}>
-                              {item.name}
-                            </div>
-                            <div className="file-size">
-                              {item.isDirectory ? '-' : formatBytes(item.size)}
-                            </div>
-                            <div className="file-date">
-                              {item.isDirectory ? '-' : formatDate(item.mtime)}
-                            </div>
-                            <div>
-                              {!item.isDirectory && (
-                                <button 
-                                  className="btn btn-secondary" 
-                                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                                  onClick={() => openFileVersions(item)}
-                                >
-                                  Versiones
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
 
-                    {selectedExplorerItem && !selectedExplorerItem.isDirectory && (
-                      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+                    <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                      {selectedExplorerItems.length > 0 ? (
                         <button 
                           className="btn btn-primary" 
-                          onClick={() => openFileVersions(selectedExplorerItem)}
+                          onClick={openMultiRestoreModal}
                         >
-                          Restaurar {selectedExplorerItem.name}
+                          Restaurar Seleccionados ({selectedExplorerItems.length})
                         </button>
-                      </div>
-                    )}
+                      ) : (
+                        selectedExplorerItem && (
+                          <button 
+                            className="btn btn-primary" 
+                            onClick={() => {
+                              if (selectedExplorerItem.isDirectory) {
+                                setSelectedExplorerItems([selectedExplorerItem]);
+                                openMultiRestoreModal();
+                              } else {
+                                openFileVersions(selectedExplorerItem);
+                              }
+                            }}
+                          >
+                            Restaurar {selectedExplorerItem.isDirectory ? `Carpeta "${selectedExplorerItem.name}"` : selectedExplorerItem.name}
+                          </button>
+                        )
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--border-color)', borderRadius: '1rem', color: 'var(--text-muted)' }}>
@@ -1068,12 +1175,15 @@ function App() {
       </main>
 
       {/* VERSION SELECTOR & RESTORE MODAL */}
-      {isVersionModalOpen && selectedExplorerItem && (
+      {isVersionModalOpen && selectedRun && (
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
               <h3 style={{ fontSize: '1.1rem', fontWeight: 600 }}>
-                Restaurar archivo: {selectedExplorerItem.name}
+                {isFullRestore ? 'Restauración Completa' : 
+                 selectedExplorerItems.length > 0 ? 'Restaurar Elementos Seleccionados' : 
+                 selectedExplorerItem?.isDirectory ? `Restaurar carpeta: ${selectedExplorerItem?.name}` : 
+                 `Restaurar archivo: ${selectedExplorerItem?.name}`}
               </h3>
               <button className="modal-close" onClick={() => {
                 setIsVersionModalOpen(false);
@@ -1082,39 +1192,49 @@ function App() {
             </div>
 
             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
-              Ruta del archivo en el backup: <br />
-              <code style={{ color: 'var(--accent-purple)', wordBreak: 'break-all' }}>{selectedExplorerItem.path}</code>
+              {isFullRestore ? (
+                <span>Se restaurará el 100% de los archivos de la copia de seguridad: <strong>{formatDate(selectedRun.timestamp)}</strong>.</span>
+              ) : selectedExplorerItems.length > 0 ? (
+                <span>Se restaurarán los <strong>{selectedExplorerItems.length}</strong> elementos seleccionados de la copia de seguridad.</span>
+              ) : (
+                <>
+                  Ruta en el backup: <br />
+                  <code style={{ color: 'var(--accent-purple)', wordBreak: 'break-all' }}>{selectedExplorerItem?.path}</code>
+                </>
+              )}
             </div>
 
-            {/* List versions */}
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label>Selecciona la versión del archivo a restaurar:</label>
-              <div style={{ maxHeight: '180px', overflowY: 'auto', marginTop: '0.5rem' }}>
-                {selectedFileVersions.map((ver, idx) => (
-                  <div 
-                    key={idx}
-                    className={`version-item ${selectedVersion?.runId === ver.runId ? 'selected' : ''}`}
-                    onClick={() => setSelectedVersion(ver)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>
-                        Copia: {ver.runFolderName}
+            {/* List versions (Only for single files) */}
+            {!isFullRestore && selectedExplorerItems.length === 0 && selectedExplorerItem && !selectedExplorerItem.isDirectory && (
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label>Selecciona la versión del archivo a restaurar:</label>
+                <div style={{ maxHeight: '180px', overflowY: 'auto', marginTop: '0.5rem' }}>
+                  {selectedFileVersions.map((ver, idx) => (
+                    <div 
+                      key={idx}
+                      className={`version-item ${selectedVersion?.runId === ver.runId ? 'selected' : ''}`}
+                      onClick={() => setSelectedVersion(ver)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                          Copia: {ver.runFolderName}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>
+                          Fecha backup: {formatDate(ver.runTimestamp)}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>
-                        Fecha backup: {formatDate(ver.runTimestamp)}
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 500 }}>{formatBytes(ver.size)}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>
+                          Modificado: {formatDate(ver.mtime)}
+                        </div>
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.8rem', fontWeight: 500 }}>{formatBytes(ver.size)}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>
-                        Modificado: {formatDate(ver.mtime)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Destination Selection */}
             <div className="card" style={{ padding: '1rem', backgroundColor: 'rgba(0, 0, 0, 0.2)', marginBottom: '1.25rem' }}>

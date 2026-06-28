@@ -568,7 +568,7 @@ tr:hover td {
 
 .file-explorer-item {
   display: grid;
-  grid-template-columns: 30px 1fr 100px 150px 100px;
+  grid-template-columns: 30px 30px 1fr 100px 150px 100px;
   align-items: center;
   padding: 0.6rem 1rem;
   border-bottom: 1px solid var(--border-color);
