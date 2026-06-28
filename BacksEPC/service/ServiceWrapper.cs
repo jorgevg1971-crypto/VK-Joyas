@@ -64,9 +64,16 @@ namespace ePCBackup
 
                     Log("Launching Node.js process with script: " + nodeScript);
                     
+                    string nodeExePath = "node.exe";
+                    string localNodeExe = Path.Combine(_appDir, "node.exe");
+                    if (File.Exists(localNodeExe))
+                    {
+                        nodeExePath = localNodeExe;
+                    }
+
                     ProcessStartInfo psi = new ProcessStartInfo
                     {
-                        FileName = "node.exe",
+                        FileName = nodeExePath,
                         Arguments = "\"" + nodeScript + "\"",
                         WorkingDirectory = Path.Combine(_appDir, "backend"),
                         UseShellExecute = false,
