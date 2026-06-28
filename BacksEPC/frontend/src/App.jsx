@@ -317,6 +317,32 @@ function App() {
     }
   };
 
+  const triggerRemoteConsolidate = async (ip, runId) => {
+    if (!window.confirm(`¿Estás seguro de que deseas consolidar y comprimir en ZIP el último backup de la máquina remota ${ip}? Esto se ejecutará en segundo plano en esa máquina.`)) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/network/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ip,
+          endpoint: '/api/backup/consolidate',
+          method: 'POST',
+          payload: { runId }
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(data.message);
+      } else {
+        alert(`Error al consolidar remoto: ${data.message}`);
+      }
+    } catch (e) {
+      alert(`Error al conectar con la máquina remota: ${e.message}`);
+    }
+  };
+
   const handleConsolidateBackup = async (runId) => {
     if (!window.confirm('¿Estás seguro de que deseas consolidar y comprimir en ZIP todas las copias incrementales hasta esta versión? Esto puede tomar algunos minutos dependiendo del volumen de datos.')) {
       return;
@@ -1465,6 +1491,7 @@ function App() {
                         const lastRun = data?.lastRunTimestamp;
                         const lastRunType = data?.lastRunType;
                         const lastRunHasVssWarning = data?.lastRunHasVssWarning;
+                        const lastRunId = data?.lastRunId;
 
                         const isRunning = currentJob && jobStatus !== 'idle';
                         const currentFile = currentJob?.progress?.currentFile;
@@ -1592,6 +1619,23 @@ function App() {
                                       >
                                         Completo
                                       </button>
+                                      {lastRunId && (
+                                        <button 
+                                          type="button"
+                                          className="btn btn-secondary" 
+                                          style={{ 
+                                            padding: '0.35rem 0.6rem', 
+                                            fontSize: '0.75rem', 
+                                            fontWeight: 600,
+                                            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                                            color: 'var(--accent-blue)',
+                                            border: '1px solid rgba(59, 130, 246, 0.3)'
+                                          }}
+                                          onClick={() => triggerRemoteConsolidate(ip, lastRunId)}
+                                        >
+                                          📦 Consolidar ZIP
+                                        </button>
+                                      )}
                                     </>
                                   )}
                                 </div>

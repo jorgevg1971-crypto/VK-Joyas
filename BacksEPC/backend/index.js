@@ -71,6 +71,7 @@ app.get('/api/status', (req, res) => {
     deviceIdentifier: config.deviceIdentifier || os.hostname(),
     lastRunTimestamp: config.lastRunTimestamp,
     lastRunType: lastRun ? lastRun.type : null,
+    lastRunId: lastRun ? lastRun.id : null,
     lastRunHasVssWarning: lastRun ? !!(lastRun.warnings && lastRun.warnings.length > 0) : false,
     totalSuccessfulBackups: runs.length,
     totalSpaceUsed,
