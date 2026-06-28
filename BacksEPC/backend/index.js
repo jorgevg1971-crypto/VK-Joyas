@@ -432,16 +432,21 @@ app.post('/api/network/proxy', async (req, res) => {
   }
   remoteUrl += endpoint;
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3000); // 3-second connection timeout
+
   try {
     const options = {
       method: method || 'GET',
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal
     };
     if (payload && (options.method === 'POST' || options.method === 'PUT')) {
       options.body = JSON.stringify(payload);
     }
 
     const remoteRes = await fetch(remoteUrl, options);
+    clearTimeout(timeoutId);
     const text = await remoteRes.text();
     
     let data;
@@ -453,6 +458,10 @@ app.post('/api/network/proxy', async (req, res) => {
 
     res.status(remoteRes.status).json(data);
   } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      return res.status(504).json({ success: false, message: 'La máquina remota no respondió (Timeout de 3s).' });
+    }
     res.status(502).json({ success: false, message: `Error al comunicar con la máquina remota: ${err.message}` });
   }
 });
