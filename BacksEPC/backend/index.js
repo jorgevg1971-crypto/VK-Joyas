@@ -67,6 +67,7 @@ app.get('/api/status', (req, res) => {
 
   res.json({
     currentJob,
+    deviceIdentifier: config.deviceIdentifier || os.hostname(),
     lastRunTimestamp: config.lastRunTimestamp,
     totalSuccessfulBackups: runs.length,
     totalSpaceUsed,

@@ -1456,59 +1456,76 @@ function App() {
                     ) : (
                       networkMachines.map((ip) => {
                         const statusInfo = machinesStatus[ip];
+                        const loading = statusInfo?.loading;
+                        const error = statusInfo?.error;
+                        const data = statusInfo?.data;
+                        const deviceId = data?.deviceIdentifier || 'Cargando...';
+                        const currentJob = data?.currentJob;
+                        const jobStatus = currentJob?.status;
+                        const lastRun = data?.lastRunTimestamp;
+
+                        const isRunning = currentJob && jobStatus !== 'idle';
+                        const currentFile = currentJob?.progress?.currentFile;
+                        const processed = currentJob?.progress?.processedFiles || 0;
+                        const total = currentJob?.progress?.totalFiles || 0;
+                        const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
+
+                        const isCopying = currentJob && (
+                          jobStatus === 'scanning' || 
+                          jobStatus === 'copying' || 
+                          jobStatus === 'cleaning'
+                        );
                         
                         return (
                           <tr key={ip}>
                             <td style={{ fontWeight: 600 }}>
-                              {statusInfo?.data?.deviceIdentifier || 'Cargando...'}
+                              {deviceId}
                               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 400, marginTop: '0.1rem' }}>
                                 {ip}
                               </div>
                             </td>
                             <td>
-                              {statusInfo?.loading ? (
+                              {loading ? (
                                 <span style={{ color: 'var(--text-muted)' }}>Cargando estado...</span>
-                              ) : statusInfo?.error ? (
-                                <span className="badge badge-failed" title={statusInfo.error}>
+                              ) : error ? (
+                                <span className="badge badge-failed" title={error}>
                                   ⚠️ Desconectado
                                 </span>
-                              ) : statusInfo?.data?.currentJob ? (
+                              ) : currentJob ? (
                                 <span className={`badge ${
-                                  statusInfo.data.currentJob.status === 'success' ? 'badge-success' :
-                                  statusInfo.data.currentJob.status === 'running' || statusInfo.data.currentJob.status === 'scanning' || statusInfo.data.currentJob.status === 'copying' || statusInfo.data.currentJob.status === 'cleaning' ? 'badge-running' : 
-                                  statusInfo.data.currentJob.status === 'idle' ? 'badge-secondary' : 'badge-failed'
+                                  jobStatus === 'success' ? 'badge-success' :
+                                  jobStatus === 'running' || jobStatus === 'scanning' || jobStatus === 'copying' || jobStatus === 'cleaning' ? 'badge-running' : 
+                                  jobStatus === 'idle' ? 'badge-secondary' : 'badge-failed'
                                 }`}>
-                                  {statusInfo.data.currentJob.status === 'idle' ? 'Listo (Listo)' :
-                                   statusInfo.data.currentJob.status === 'success' ? 'Completado' :
-                                   statusInfo.data.currentJob.status === 'scanning' ? 'Escaneando' :
-                                   statusInfo.data.currentJob.status === 'copying' ? 'Copiando' :
-                                   statusInfo.data.currentJob.status === 'cleaning' ? 'Limpiando' : 'Error'}
+                                  {jobStatus === 'idle' ? 'Listo (Listo)' :
+                                   jobStatus === 'success' ? 'Completado' :
+                                   jobStatus === 'scanning' ? 'Escaneando' :
+                                   jobStatus === 'copying' ? 'Copiando' :
+                                   jobStatus === 'cleaning' ? 'Limpiando' : 'Error'}
                                 </span>
                               ) : (
                                 <span style={{ color: 'var(--text-muted)' }}>-</span>
                               )}
                             </td>
                             <td>
-                              {!statusInfo?.loading && !statusInfo?.error && statusInfo?.data?.lastRunTimestamp ? (
-                                formatDate(statusInfo.data.lastRunTimestamp)
+                              {lastRun ? (
+                                formatDate(lastRun)
                               ) : (
                                 <span style={{ color: 'var(--text-muted)' }}>Ninguna o desconocido</span>
                               )}
                             </td>
                             <td>
-                              {!statusInfo?.loading && !statusInfo?.error && statusInfo?.data?.currentJob && statusInfo.data.currentJob.status !== 'idle' ? (
+                              {isRunning ? (
                                 <div style={{ minWidth: '120px' }}>
                                   <div style={{ fontSize: '0.75rem', marginBottom: '0.2rem', wordBreak: 'break-all' }}>
-                                    {statusInfo.data.currentJob.progress?.currentFile || 'Iniciando...'}
+                                    {currentFile || 'Iniciando...'}
                                   </div>
                                   <div className="progress-bar-bg" style={{ height: '6px' }}>
                                     <div 
                                       className="progress-bar-fill"
                                       style={{ 
                                         height: '6px',
-                                        width: `${statusInfo.data.currentJob.progress?.totalFiles > 0 
-                                          ? Math.round((statusInfo.data.currentJob.progress.processedFiles / statusInfo.data.currentJob.progress.totalFiles) * 100) 
-                                          : 0}%` 
+                                        width: `${pct}%` 
                                       }}
                                     ></div>
                                   </div>
@@ -1518,14 +1535,11 @@ function App() {
                               )}
                             </td>
                             <td>
-                              {!statusInfo?.loading && !statusInfo?.error ? (
+                              {!loading && !error && data ? (
                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                  {statusInfo.data.currentJob && (
-                                    statusInfo.data.currentJob.status === 'scanning' || 
-                                    statusInfo.data.currentJob.status === 'copying' || 
-                                    statusInfo.data.currentJob.status === 'cleaning'
-                                  ) ? (
+                                  {isCopying ? (
                                     <button 
+                                      type="button"
                                       className="btn btn-danger" 
                                       style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', fontWeight: 600 }}
                                       onClick={() => cancelRemoteBackup(ip)}
@@ -1535,6 +1549,7 @@ function App() {
                                   ) : (
                                     <>
                                       <button 
+                                        type="button"
                                         className="btn btn-secondary" 
                                         style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', fontWeight: 600 }}
                                         onClick={() => triggerRemoteBackup(ip, 'incremental')}
@@ -1542,6 +1557,7 @@ function App() {
                                         Incremental
                                       </button>
                                       <button 
+                                        type="button"
                                         className="btn btn-primary" 
                                         style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', fontWeight: 600 }}
                                         onClick={() => triggerRemoteBackup(ip, 'full')}
@@ -1551,8 +1567,8 @@ function App() {
                                     </>
                                   )}
                                 </div>
-                              ) : statusInfo?.error ? (
-                                <span style={{ fontSize: '0.8rem', color: 'var(--accent-red)' }}>{statusInfo.error}</span>
+                              ) : error ? (
+                                <span style={{ fontSize: '0.8rem', color: 'var(--accent-red)' }}>{error}</span>
                               ) : (
                                 <span style={{ color: 'var(--text-muted)' }}>-</span>
                               )}
