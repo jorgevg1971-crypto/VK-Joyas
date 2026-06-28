@@ -216,16 +216,30 @@ function App() {
     setNewMachineIp('');
   };
 
-  const removeNetworkMachine = (ip) => {
+  const removeNetworkMachine = async (ip) => {
     if (!window.confirm(`¿Estás seguro de que deseas eliminar la máquina ${ip} de la consola de red?`)) {
       return;
     }
-    const newList = networkMachines.filter(item => item !== ip);
-    saveNetworkMachinesList(newList);
     
-    const updatedStatus = { ...machinesStatus };
-    delete updatedStatus[ip];
-    setMachinesStatus(updatedStatus);
+    try {
+      const res = await fetch('/api/network/machines/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        fetchNetworkMachines();
+        
+        const updatedStatus = { ...machinesStatus };
+        delete updatedStatus[ip];
+        setMachinesStatus(updatedStatus);
+      } else {
+        alert(`Error al eliminar: ${data.message}`);
+      }
+    } catch (e) {
+      alert(`Error al conectar con el servidor local: ${e.message}`);
+    }
   };
 
   const fetchRemoteStatuses = async () => {

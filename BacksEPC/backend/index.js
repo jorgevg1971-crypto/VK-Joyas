@@ -18,6 +18,61 @@ function toLongPath(p) {
   return '\\\\?\\' + normalized;
 }
 
+// Auto-register local IP address and port to shared NAS list
+async function registerSelfToSharedNetworkList() {
+  const config = db.getConfig();
+  if (!config.destination) return;
+
+  let localIp = '127.0.0.1';
+  const interfaces = os.networkInterfaces();
+  for (const name in interfaces) {
+    for (const net of interfaces[name]) {
+      if (net.family === 'IPv4' && !net.internal) {
+        localIp = net.address;
+        break;
+      }
+    }
+    if (localIp !== '127.0.0.1') break;
+  }
+  
+  const port = process.env.PORT || 8282;
+  const selfAddress = `${localIp}:${port}`;
+
+  if (config.destination.startsWith('\\\\')) {
+    try {
+      await nasConnector.connect(config.destination, config.nasUsername, config.nasPasswordDecrypted);
+    } catch (e) {
+      console.error('[Auto-Register] Failed to connect to NAS:', e.message);
+      return;
+    }
+  }
+
+  const sharedFilePath = path.join(config.destination, 'network_clients.json');
+  const longPath = toLongPath(sharedFilePath);
+
+  try {
+    let clients = [];
+    if (fs.existsSync(longPath)) {
+      const content = fs.readFileSync(longPath, 'utf8');
+      try {
+        clients = JSON.parse(content);
+      } catch (e) {}
+    }
+
+    if (!Array.isArray(clients)) {
+      clients = [];
+    }
+
+    if (!clients.includes(selfAddress)) {
+      clients.push(selfAddress);
+      fs.writeFileSync(longPath, JSON.stringify(clients, null, 2), 'utf8');
+      console.log(`[Auto-Register] Registered self address ${selfAddress} in shared list.`);
+    }
+  } catch (err) {
+    console.error('[Auto-Register] Failed to write shared clients file:', err.message);
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 8282;
 
@@ -113,6 +168,7 @@ app.post('/api/config', (req, res) => {
 
   const success = db.saveConfig(updates);
   if (success) {
+    registerSelfToSharedNetworkList().catch(e => console.error('[Auto-Register]', e.message));
     res.json({ success: true, message: 'Configuration saved successfully.' });
   } else {
     res.status(500).json({ success: false, message: 'Failed to save configuration.' });
@@ -147,6 +203,7 @@ app.post('/api/config/test-connection', async (req, res) => {
 
     const accessTest = await nasConnector.testAccess(destination);
     if (accessTest.success) {
+      registerSelfToSharedNetworkList().catch(e => console.error('[Auto-Register]', e.message));
       res.json({ success: true, message: '¡Conexión exitosa! La carpeta de destino es accesible.' });
     } else {
       res.json({ success: false, message: `No se pudo acceder a la carpeta: ${accessTest.error}` });
@@ -400,9 +457,39 @@ app.post('/api/backup/consolidate', async (req, res) => {
   }
 });
 
-// 10. Get list of monitored network machines
-app.get('/api/network/machines', (req, res) => {
-  res.json(getNetworkMachines());
+// 10. Get list of monitored network machines (merges local manual list and shared NAS auto list)
+app.get('/api/network/machines', async (req, res) => {
+  const localMachines = getNetworkMachines();
+  const config = db.getConfig();
+  let sharedMachines = [];
+
+  if (config.destination) {
+    if (config.destination.startsWith('\\\\')) {
+      try {
+        await nasConnector.connect(config.destination, config.nasUsername, config.nasPasswordDecrypted);
+      } catch (e) {
+        console.error('[Get-Network] Failed to connect to NAS:', e.message);
+      }
+    }
+
+    const sharedFilePath = path.join(config.destination, 'network_clients.json');
+    const longPath = toLongPath(sharedFilePath);
+
+    try {
+      if (fs.existsSync(longPath)) {
+        const content = fs.readFileSync(longPath, 'utf8');
+        const parsed = JSON.parse(content);
+        if (Array.isArray(parsed)) {
+          sharedMachines = parsed;
+        }
+      }
+    } catch (e) {
+      console.error('[Get-Network] Failed to read shared clients list:', e.message);
+    }
+  }
+
+  const merged = Array.from(new Set([...localMachines, ...sharedMachines]));
+  res.json(merged);
 });
 
 // 11. Save list of monitored network machines
@@ -417,6 +504,48 @@ app.post('/api/network/machines', (req, res) => {
   } else {
     res.status(500).json({ success: false, message: 'No se pudo guardar la lista.' });
   }
+});
+
+// 11b. Remove machine from both local list and shared list on NAS
+app.post('/api/network/machines/remove', async (req, res) => {
+  const { ip } = req.body;
+  if (!ip) {
+    return res.status(400).json({ success: false, message: 'ip es requerido.' });
+  }
+
+  const localMachines = getNetworkMachines();
+  const newLocal = localMachines.filter(item => item !== ip);
+  saveNetworkMachines(newLocal);
+
+  const config = db.getConfig();
+  if (config.destination) {
+    if (config.destination.startsWith('\\\\')) {
+      try {
+        await nasConnector.connect(config.destination, config.nasUsername, config.nasPasswordDecrypted);
+      } catch (e) {
+        console.error('[Remove-Remote] Failed to connect to NAS:', e.message);
+      }
+    }
+
+    const sharedFilePath = path.join(config.destination, 'network_clients.json');
+    const longPath = toLongPath(sharedFilePath);
+
+    try {
+      if (fs.existsSync(longPath)) {
+        const content = fs.readFileSync(longPath, 'utf8');
+        let clients = JSON.parse(content);
+        if (Array.isArray(clients)) {
+          const newClients = clients.filter(item => item !== ip);
+          fs.writeFileSync(longPath, JSON.stringify(newClients, null, 2), 'utf8');
+          console.log(`[Remove-Remote] Removed ${ip} from shared clients list.`);
+        }
+      }
+    } catch (err) {
+      console.error('[Remove-Remote] Failed to update shared clients file:', err.message);
+    }
+  }
+
+  res.json({ success: true, message: 'Máquina removida con éxito.' });
 });
 
 // 12. Proxy requests to remote machines (bypasses CORS restrictions)
