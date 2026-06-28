@@ -100,6 +100,43 @@ app.post('/api/config', (req, res) => {
   }
 });
 
+// 3b. Test NAS/Destination connection
+app.post('/api/config/test-connection', async (req, res) => {
+  const { destination, nasUsername, nasPasswordDecrypted } = req.body;
+
+  if (!destination) {
+    return res.status(400).json({ success: false, message: 'Ruta de destino requerida.' });
+  }
+
+  // Determine what password to use
+  let passwordToUse = nasPasswordDecrypted;
+  if (passwordToUse === undefined || passwordToUse === '') {
+    // Read from saved config
+    const currentConfig = db.getConfig();
+    // Only use saved password if the username matches the saved username
+    if (nasUsername === currentConfig.nasUsername) {
+      passwordToUse = currentConfig.nasPasswordDecrypted;
+    }
+  }
+
+  try {
+    if (destination.startsWith('\\\\')) {
+      if (nasUsername) {
+        await nasConnector.connect(destination, nasUsername, passwordToUse);
+      }
+    }
+
+    const accessTest = await nasConnector.testAccess(destination);
+    if (accessTest.success) {
+      res.json({ success: true, message: '¡Conexión exitosa! La carpeta de destino es accesible.' });
+    } else {
+      res.json({ success: false, message: `No se pudo acceder a la carpeta: ${accessTest.error}` });
+    }
+  } catch (err) {
+    res.json({ success: false, message: `Fallo de conexión: ${err.message}` });
+  }
+});
+
 // 4. Trigger manual backup
 app.post('/api/backup', async (req, res) => {
   const { type } = req.body; // 'full' or 'incremental'

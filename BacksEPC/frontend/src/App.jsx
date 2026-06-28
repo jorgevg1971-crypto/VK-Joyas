@@ -39,6 +39,7 @@ function App() {
   const [retention, setRetention] = useState(5);
   const [newSourcePath, setNewSourcePath] = useState('');
   const [saveStatus, setSaveStatus] = useState({ success: null, message: '' });
+  const [testConnectionStatus, setTestConnectionStatus] = useState({ success: null, message: '', loading: false });
 
   // Restore explorer state
   const [selectedRun, setSelectedRun] = useState(null);
@@ -214,6 +215,29 @@ function App() {
       }
     } catch (err) {
       setSaveStatus({ success: false, message: 'Error de red al guardar.' });
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setTestConnectionStatus({ success: null, message: '', loading: true });
+    try {
+      const res = await fetch('/api/config/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          destination,
+          nasUsername,
+          nasPasswordDecrypted: nasPassword
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTestConnectionStatus({ success: true, message: data.message, loading: false });
+      } else {
+        setTestConnectionStatus({ success: false, message: data.message, loading: false });
+      }
+    } catch (err) {
+      setTestConnectionStatus({ success: false, message: 'Error de red al intentar conectar.', loading: false });
     }
   };
 
@@ -751,6 +775,29 @@ function App() {
                   <div className="helper-text">
                     Las credenciales se cifrarán localmente y se guardarán de forma permanente.
                   </div>
+                </div>
+
+                <div style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleTestConnection}
+                    disabled={testConnectionStatus.loading || !destination}
+                  >
+                    {testConnectionStatus.loading ? 'Probando...' : 'Probar Conexión'}
+                  </button>
+                  
+                  {testConnectionStatus.message && (
+                    <span style={{ 
+                      fontSize: '0.85rem', 
+                      fontWeight: 600, 
+                      color: testConnectionStatus.success ? 'var(--accent-green)' : 'var(--accent-red)',
+                      textAlign: 'right',
+                      flex: 1
+                    }}>
+                      {testConnectionStatus.message}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
