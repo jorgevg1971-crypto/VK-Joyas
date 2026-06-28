@@ -3,6 +3,8 @@ const path = require('path');
 const nasConnector = require('./nas-connector');
 const db = require('./database');
 
+let abortRequested = false;
+
 // In-memory status tracker for the UI
 let currentJobStatus = {
   status: 'idle', // 'idle', 'scanning', 'copying', 'cleaning', 'failed', 'success'
@@ -119,6 +121,8 @@ async function runBackup(requestedType = null) {
   let connectedToNas = false;
   let backupType = requestedType; // will be 'full' or 'incremental'
 
+  abortRequested = false;
+  
   // Log in database as running
   const runLog = {
     id: runId,
@@ -210,6 +214,9 @@ async function runBackup(requestedType = null) {
     }
 
     for (const file of allSourceFiles) {
+      if (abortRequested) {
+        throw new Error('Copia de seguridad cancelada por el usuario.');
+      }
       currentJobStatus.progress.currentFile = file.relPath;
       
       let shouldCopy = false;
@@ -379,7 +386,16 @@ function getStatus() {
   return currentJobStatus;
 }
 
+function cancelBackup() {
+  if (currentJobStatus.status === 'scanning' || currentJobStatus.status === 'copying' || currentJobStatus.status === 'cleaning') {
+    abortRequested = true;
+    return true;
+  }
+  return false;
+}
+
 module.exports = {
   runBackup,
-  getStatus
+  getStatus,
+  cancelBackup
 };

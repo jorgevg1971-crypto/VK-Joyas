@@ -120,6 +120,16 @@ app.post('/api/backup', async (req, res) => {
   }
 });
 
+// 4b. Cancel running backup
+app.post('/api/backup/cancel', (req, res) => {
+  const success = backupEngine.cancelBackup();
+  if (success) {
+    res.json({ success: true, message: 'Se ha solicitado la cancelación del backup.' });
+  } else {
+    res.status(400).json({ success: false, message: 'No hay ninguna copia de seguridad activa para cancelar.' });
+  }
+});
+
 // 5. Get backup run history
 app.get('/api/history', (req, res) => {
   const runs = db.getRuns().slice().reverse(); // Show newest first

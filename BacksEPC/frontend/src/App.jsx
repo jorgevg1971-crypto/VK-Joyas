@@ -235,6 +235,25 @@ function App() {
     }
   };
 
+  const handleCancelBackup = async () => {
+    if (!window.confirm('¿Estás seguro de que deseas cancelar la copia de seguridad actual?')) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/backup/cancel', {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchStatus();
+      } else {
+        alert(data.message);
+      }
+    } catch (err) {
+      alert('Error de red al intentar cancelar el backup.');
+    }
+  };
+
   const addSourcePath = () => {
     if (newSourcePath && !sources.includes(newSourcePath)) {
       setSources([...sources, newSourcePath]);
@@ -475,10 +494,20 @@ function App() {
                         }}
                       ></div>
                     </div>
-                    <div className="progress-details">
+                    <div className="progress-details" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>
                         Procesados: {status.currentJob.progress?.processedFiles} / {status.currentJob.progress?.totalFiles} archivos
                       </span>
+                      
+                      <button
+                        type="button"
+                        className="btn btn-danger"
+                        onClick={handleCancelBackup}
+                        style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', fontWeight: 600 }}
+                      >
+                        Cancelar Copia
+                      </button>
+
                       <span>
                         Tamaño: {formatBytes(status.currentJob.progress?.bytesCopied || 0)} / {formatBytes(status.currentJob.progress?.totalBytes || 0)}
                       </span>
