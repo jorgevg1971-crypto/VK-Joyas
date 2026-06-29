@@ -31,6 +31,7 @@ const DEFAULT_CONFIG = {
   nasPassword: '', // Saved encrypted
   adminPassword: '', // Saved encrypted
   schedule: {
+    enabled: true,
     type: 'interval_days', // 'days_of_week' or 'interval_days'
     daysOfWeek: [1, 2, 3, 4, 5], // Mon-Fri
     intervalDays: 1,

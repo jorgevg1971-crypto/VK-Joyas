@@ -32,6 +32,7 @@ function App() {
   const [destination, setDestination] = useState('');
   const [nasUsername, setNasUsername] = useState('');
   const [nasPassword, setNasPassword] = useState('');
+  const [scheduleEnabled, setScheduleEnabled] = useState(true);
   const [scheduleType, setScheduleType] = useState('interval_days');
   const [scheduleDays, setScheduleDays] = useState([1, 2, 3, 4, 5]);
   const [scheduleInterval, setScheduleInterval] = useState(1);
@@ -496,6 +497,7 @@ function App() {
       setDestination(data.destination || '');
       setDeviceIdentifier(data.deviceIdentifier || '');
       setNasUsername(data.nasUsername || '');
+      setScheduleEnabled(data.schedule?.enabled !== false);
       setScheduleType(data.schedule?.type || 'interval_days');
       setScheduleDays(data.schedule?.daysOfWeek || [1, 2, 3, 4, 5]);
       setScheduleInterval(data.schedule?.intervalDays || 1);
@@ -516,6 +518,7 @@ function App() {
         deviceIdentifier,
         nasUsername,
         schedule: {
+          enabled: scheduleEnabled,
           type: scheduleType,
           daysOfWeek: scheduleDays,
           intervalDays: Number(scheduleInterval),
@@ -1229,11 +1232,25 @@ function App() {
               <div className="card">
                 <h3 className="card-title">Planificación del Backup</h3>
 
+                <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+                  <input 
+                    type="checkbox" 
+                    id="scheduleEnabled" 
+                    checked={scheduleEnabled}
+                    onChange={(e) => setScheduleEnabled(e.target.checked)}
+                    style={{ width: 'auto', margin: 0 }}
+                  />
+                  <label htmlFor="scheduleEnabled" style={{ margin: 0, fontWeight: 600, cursor: 'pointer' }}>
+                    Programación automática activada
+                  </label>
+                </div>
+
                 <div className="form-group">
-                  <label>Tipo de Programación</label>
+                  <label style={{ opacity: scheduleEnabled ? 1 : 0.5 }}>Tipo de Programación</label>
                   <select 
                     value={scheduleType}
                     onChange={(e) => setScheduleType(e.target.value)}
+                    disabled={!scheduleEnabled}
                   >
                     <option value="interval_days">Cada cierta cantidad de días</option>
                     <option value="days_of_week">Días específicos de la semana</option>
@@ -1242,24 +1259,27 @@ function App() {
 
                 {scheduleType === 'interval_days' ? (
                   <div className="form-group">
-                    <label>Ejecutar backup cada (en días):</label>
+                    <label style={{ opacity: scheduleEnabled ? 1 : 0.5 }}>Ejecutar backup cada (en días):</label>
                     <input 
                       type="number" 
                       min="1" 
                       value={scheduleInterval}
                       onChange={(e) => setScheduleInterval(e.target.value)}
+                      disabled={!scheduleEnabled}
                     />
                   </div>
                 ) : (
                   <div className="form-group">
-                    <label>Selecciona los días de copia:</label>
+                    <label style={{ opacity: scheduleEnabled ? 1 : 0.5 }}>Selecciona los días de copia:</label>
                     <div className="days-grid">
                       {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map((name, idx) => (
                         <button
                           key={idx}
                           type="button"
                           className={`day-btn ${scheduleDays.includes(idx) ? 'selected' : ''}`}
-                          onClick={() => toggleDay(idx)}
+                          onClick={() => { if (scheduleEnabled) toggleDay(idx); }}
+                          disabled={!scheduleEnabled}
+                          style={{ opacity: scheduleEnabled ? 1 : 0.5, cursor: scheduleEnabled ? 'pointer' : 'not-allowed' }}
                         >
                           {name}
                         </button>
@@ -1269,15 +1289,16 @@ function App() {
                 )}
 
                 <div className="form-group">
-                  <label>Hora de ejecución (Formato 24h)</label>
+                  <label style={{ opacity: scheduleEnabled ? 1 : 0.5 }}>Hora de ejecución (Formato 24h)</label>
                   <input 
                     type="text" 
                     placeholder="22:00" 
                     value={scheduleTime}
                     onChange={(e) => setScheduleTime(e.target.value)}
+                    disabled={!scheduleEnabled}
                     required
                   />
-                  <div className="helper-text">Hora local de Windows. Ej: 23:30, 02:15.</div>
+                  <div className="helper-text" style={{ opacity: scheduleEnabled ? 1 : 0.5 }}>Hora local de Windows. Ej: 23:30, 02:15.</div>
                 </div>
               </div>
 

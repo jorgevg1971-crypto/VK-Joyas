@@ -23,6 +23,9 @@ async function checkAndTriggerBackup() {
   }
 
   const config = db.getConfig();
+  if (config.schedule && config.schedule.enabled === false) {
+    return; // Automatic backups disabled
+  }
   if (!config.sources || config.sources.length === 0 || !config.destination) {
     // Config not complete
     return;
