@@ -76,6 +76,17 @@ function copyFileWithProgress(src, dest) {
     fs.mkdirSync(toLongPath(destDir), { recursive: true });
   }
 
+  // Double-check if src is actually a directory to prevent EISDIR on virtual/cloud drives
+  try {
+    const stat = fs.statSync(toLongPath(src));
+    if (stat.isDirectory()) {
+      console.warn(`[Backup Engine] Skipping directory reported as file: ${src}`);
+      return Promise.resolve();
+    }
+  } catch (e) {
+    // If stat fails, let the read stream attempt to run and handle it normally
+  }
+
   return new Promise((resolve, reject) => {
     const rd = fs.createReadStream(toLongPath(src));
     const wr = fs.createWriteStream(toLongPath(dest));
