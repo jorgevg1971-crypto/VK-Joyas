@@ -338,11 +338,11 @@ async function runBackup(requestedType = null) {
     db.saveConfig({ lastRunTimestamp: timestamp });
 
     // 6. Retention cleanup (Only clean after a successful FULL backup)
+    // Run in background so the UI immediately transitions to success
     if (backupType === 'full') {
-      currentJobStatus.status = 'cleaning';
-      currentJobStatus.progress.currentFile = 'Ejecutando política de retención...';
-      await runRetentionCleanup(config, runId);
-      currentJobStatus.status = 'success';
+      runRetentionCleanup(config, runId).catch(err => {
+        console.error('[Retention Cleanup] Background run failed:', err.message);
+      });
     }
 
   } catch (err) {
@@ -409,10 +409,11 @@ async function runRetentionCleanup(config, currentFullRunId) {
     for (const oldRun of runsToDelete) {
       const folderToDelete = path.join(config.destination, deviceIdentifier, oldRun.folderName);
       
-      // Delete the physical directory on NAS
-      if (fs.existsSync(toLongPath(folderToDelete))) {
+      // Delete the physical directory on NAS using async promises to avoid blocking main thread
+      const longPathToDelete = toLongPath(folderToDelete);
+      if (fs.existsSync(longPathToDelete)) {
         try {
-          fs.rmSync(toLongPath(folderToDelete), { recursive: true, force: true });
+          await fs.promises.rm(longPathToDelete, { recursive: true, force: true });
           console.log(`Retention: Deleted folder ${folderToDelete}`);
         } catch (e) {
           console.error(`Retention: Failed to delete physical folder ${folderToDelete}:`, e.message);
