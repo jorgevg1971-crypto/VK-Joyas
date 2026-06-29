@@ -454,6 +454,32 @@ function App() {
     }
   };
 
+  const toggleRemoteSchedule = async (ip, enable) => {
+    try {
+      const res = await fetch('/api/network/proxy', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-password': adminPassword
+        },
+        body: JSON.stringify({
+          ip,
+          endpoint: '/api/config/schedule/toggle',
+          method: 'POST',
+          payload: { enabled: enable }
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        fetchRemoteStatuses();
+      } else {
+        alert(`Error al cambiar programación remota: ${data.message}`);
+      }
+    } catch (e) {
+      alert(`Error al conectar con la máquina remota: ${e.message}`);
+    }
+  };
+
   const handleConsolidateBackup = async (runId) => {
     if (!window.confirm('¿Estás seguro de que deseas consolidar y comprimir en ZIP todas las copias incrementales hasta esta versión? Esto puede tomar algunos minutos dependiendo del volumen de datos.')) {
       return;
@@ -1623,6 +1649,7 @@ function App() {
                         const lastRunType = data?.lastRunType;
                         const lastRunHasVssWarning = data?.lastRunHasVssWarning;
                         const lastRunId = data?.lastRunId;
+                        const remoteScheduleEnabled = data?.scheduleEnabled !== false;
 
                         const isRunning = currentJob && jobStatus !== 'idle';
                         const currentFile = currentJob?.progress?.currentFile;
@@ -1640,8 +1667,20 @@ function App() {
                           <tr key={ip}>
                             <td style={{ fontWeight: 600 }}>
                               {deviceId}
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 400, marginTop: '0.1rem' }}>
-                                {ip}
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 400, marginTop: '0.1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                <span>{ip}</span>
+                                {!loading && !error && data && (
+                                  <span style={{ 
+                                    fontSize: '0.65rem', 
+                                    padding: '0.05rem 0.25rem', 
+                                    borderRadius: '0.2rem',
+                                    backgroundColor: remoteScheduleEnabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                    color: remoteScheduleEnabled ? '#10b981' : '#ef4444',
+                                    fontWeight: 600
+                                  }}>
+                                    {remoteScheduleEnabled ? 'Auto' : 'Pausado'}
+                                  </span>
+                                )}
                               </div>
                             </td>
                             <td>
@@ -1749,6 +1788,22 @@ function App() {
                                         onClick={() => triggerRemoteBackup(ip, 'full')}
                                       >
                                         Completo
+                                      </button>
+                                      <button 
+                                        type="button"
+                                        className="btn btn-secondary" 
+                                        style={{ 
+                                          padding: '0.35rem 0.6rem', 
+                                          fontSize: '0.75rem', 
+                                          fontWeight: 600,
+                                          backgroundColor: remoteScheduleEnabled ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                                          color: remoteScheduleEnabled ? '#ef4444' : '#10b981',
+                                          border: remoteScheduleEnabled ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)'
+                                        }}
+                                        onClick={() => toggleRemoteSchedule(ip, !remoteScheduleEnabled)}
+                                        title={remoteScheduleEnabled ? 'Pausar programación automática de copias' : 'Activar programación automática de copias'}
+                                      >
+                                        {remoteScheduleEnabled ? '⏸️ Pausar' : '▶️ Activar'}
                                       </button>
                                       {lastRunId && (
                                         <button 

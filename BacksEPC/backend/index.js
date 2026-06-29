@@ -128,6 +128,7 @@ app.get('/api/status', (req, res) => {
     lastRunType: lastRun ? lastRun.type : null,
     lastRunId: lastRun ? lastRun.id : null,
     lastRunHasVssWarning: lastRun ? !!(lastRun.warnings && lastRun.warnings.length > 0) : false,
+    scheduleEnabled: config.schedule?.enabled !== false,
     totalSuccessfulBackups: runs.length,
     totalSpaceUsed,
     hasConfiguredSources: config.sources.length > 0,
@@ -172,6 +173,22 @@ app.post('/api/config', (req, res) => {
     res.json({ success: true, message: 'Configuration saved successfully.' });
   } else {
     res.status(500).json({ success: false, message: 'Failed to save configuration.' });
+  }
+});
+
+// 3c. Toggle scheduler remotely or locally
+app.post('/api/config/schedule/toggle', (req, res) => {
+  const { enabled } = req.body;
+  if (enabled === undefined) {
+    return res.status(400).json({ success: false, message: 'enabled es requerido.' });
+  }
+  const config = db.getConfig();
+  const schedule = { ...config.schedule, enabled: !!enabled };
+  const success = db.saveConfig({ schedule });
+  if (success) {
+    res.json({ success: true, message: `Programación automática ${enabled ? 'activada' : 'desactivada'} correctamente.` });
+  } else {
+    res.status(500).json({ success: false, message: 'No se pudo actualizar la configuración.' });
   }
 });
 
