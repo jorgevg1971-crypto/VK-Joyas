@@ -42,6 +42,8 @@ function App() {
   const [saveStatus, setSaveStatus] = useState({ success: null, message: '' });
   const [testConnectionStatus, setTestConnectionStatus] = useState({ success: null, message: '', loading: false });
   const [deviceIdentifier, setDeviceIdentifier] = useState('');
+  const [preferredNetworkIp, setPreferredNetworkIp] = useState('');
+  const [availableInterfaces, setAvailableInterfaces] = useState([]);
   
   // Network Console state
   const [networkMachines, setNetworkMachines] = useState([]);
@@ -522,6 +524,7 @@ function App() {
       setSources(data.sources || []);
       setDestination(data.destination || '');
       setDeviceIdentifier(data.deviceIdentifier || '');
+      setPreferredNetworkIp(data.preferredNetworkIp || '');
       setNasUsername(data.nasUsername || '');
       setScheduleEnabled(data.schedule?.enabled !== false);
       setScheduleType(data.schedule?.type || 'interval_days');
@@ -529,8 +532,21 @@ function App() {
       setScheduleInterval(data.schedule?.intervalDays || 1);
       setScheduleTime(data.schedule?.time || '22:00');
       setRetention(data.retention || 5);
+      
+      // Load local network interfaces
+      fetchInterfaces();
     } catch (e) {
       console.error('Error fetching config:', e);
+    }
+  };
+
+  const fetchInterfaces = async () => {
+    try {
+      const res = await fetch('/api/network/interfaces');
+      const data = await res.json();
+      setAvailableInterfaces(data || []);
+    } catch (err) {
+      console.error('Error fetching network interfaces:', err);
     }
   };
 
@@ -542,6 +558,7 @@ function App() {
         sources,
         destination,
         deviceIdentifier,
+        preferredNetworkIp,
         nasUsername,
         schedule: {
           enabled: scheduleEnabled,
@@ -1178,6 +1195,24 @@ function App() {
                   />
                   <div className="helper-text">
                     Nombre único para este equipo. Se creará una subcarpeta con este nombre en el NAS para mantener ordenadas las copias de seguridad de las computadoras.
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Tarjeta / IP de Red para Consola de Control</label>
+                  <select 
+                    value={preferredNetworkIp}
+                    onChange={(e) => setPreferredNetworkIp(e.target.value)}
+                  >
+                    <option value="">(Auto-detectar dirección IP activa)</option>
+                    {availableInterfaces.map((item, idx) => (
+                      <option key={idx} value={item.ip}>
+                        {item.interface} - {item.ip}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="helper-text">
+                    Si este equipo tiene múltiples tarjetas de red (Ethernet, Wi-Fi, VPNs, Docker), selecciona cuál IP debe registrarse para comunicarse en la oficina.
                   </div>
                 </div>
 

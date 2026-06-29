@@ -23,16 +23,37 @@ async function registerSelfToSharedNetworkList() {
   const config = db.getConfig();
   if (!config.destination) return;
 
-  let localIp = '127.0.0.1';
+  let localIp = '';
   const interfaces = os.networkInterfaces();
-  for (const name in interfaces) {
-    for (const net of interfaces[name]) {
-      if (net.family === 'IPv4' && !net.internal) {
-        localIp = net.address;
-        break;
+
+  if (config.preferredNetworkIp) {
+    // Check if the preferred IP is currently active on any network card
+    for (const name in interfaces) {
+      for (const net of interfaces[name]) {
+        if (net.family === 'IPv4' && net.address === config.preferredNetworkIp) {
+          localIp = config.preferredNetworkIp;
+          break;
+        }
       }
+      if (localIp) break;
     }
-    if (localIp !== '127.0.0.1') break;
+  }
+
+  // Fallback to auto-detect if preferred IP is not configured or not active
+  if (!localIp) {
+    for (const name in interfaces) {
+      for (const net of interfaces[name]) {
+        if (net.family === 'IPv4' && !net.internal) {
+          localIp = net.address;
+          break;
+        }
+      }
+      if (localIp) break;
+    }
+  }
+
+  if (!localIp) {
+    localIp = '127.0.0.1';
   }
   
   const port = process.env.PORT || 8282;
@@ -143,6 +164,7 @@ app.get('/api/config', (req, res) => {
     sources: config.sources,
     destination: config.destination,
     deviceIdentifier: config.deviceIdentifier || os.hostname(),
+    preferredNetworkIp: config.preferredNetworkIp || '',
     nasUsername: config.nasUsername,
     hasPassword: !!config.nasPassword,
     schedule: config.schedule,
@@ -152,12 +174,13 @@ app.get('/api/config', (req, res) => {
 
 // 3. Save configuration
 app.post('/api/config', (req, res) => {
-  const { sources, destination, deviceIdentifier, nasUsername, nasPasswordDecrypted, schedule, retention } = req.body;
+  const { sources, destination, deviceIdentifier, preferredNetworkIp, nasUsername, nasPasswordDecrypted, schedule, retention } = req.body;
 
   const updates = {};
   if (sources !== undefined) updates.sources = sources;
   if (destination !== undefined) updates.destination = destination;
   if (deviceIdentifier !== undefined) updates.deviceIdentifier = deviceIdentifier;
+  if (preferredNetworkIp !== undefined) updates.preferredNetworkIp = preferredNetworkIp;
   if (nasUsername !== undefined) updates.nasUsername = nasUsername;
   if (schedule !== undefined) updates.schedule = schedule;
   if (retention !== undefined) updates.retention = parseInt(retention, 10) || 5;
@@ -491,6 +514,23 @@ function checkAdminAuth(req, res, next) {
 app.get('/api/network/auth/check', (req, res) => {
   const config = db.getConfig();
   res.json({ hasPassword: !!config.adminPassword });
+});
+
+// 12b. Get list of active local network interfaces (IPs)
+app.get('/api/network/interfaces', (req, res) => {
+  const list = [];
+  const interfaces = os.networkInterfaces();
+  for (const name in interfaces) {
+    for (const net of interfaces[name]) {
+      if (net.family === 'IPv4' && !net.internal) {
+        list.push({
+          interface: name,
+          ip: net.address
+        });
+      }
+    }
+  }
+  res.json(list);
 });
 
 // 14. Set administrator password

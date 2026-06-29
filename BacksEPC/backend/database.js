@@ -27,6 +27,7 @@ const DEFAULT_CONFIG = {
   sources: [],
   destination: '',
   deviceIdentifier: os.hostname(),
+  preferredNetworkIp: '',
   nasUsername: '',
   nasPassword: '', // Saved encrypted
   adminPassword: '', // Saved encrypted
