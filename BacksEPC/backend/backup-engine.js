@@ -273,17 +273,31 @@ async function runBackup(requestedType = null) {
       }
 
       if (shouldCopy) {
-        const destFilePath = path.join(destinationFolder, file.relPath);
-        const vssSourcePath = vssManager.mapToVssPath(file.absPath, shadowMap);
-        await copyFileWithProgress(vssSourcePath, destFilePath);
-        
-        manifest[file.relPath] = {
-          size: file.size,
-          mtime: file.mtime,
-          backupFolder: backupFolderRel // points to this backup folder inside device subfolder
-        };
-        filesCopied++;
-        bytesCopied += file.size;
+        try {
+          const destFilePath = path.join(destinationFolder, file.relPath);
+          const vssSourcePath = vssManager.mapToVssPath(file.absPath, shadowMap);
+          await copyFileWithProgress(vssSourcePath, destFilePath);
+          
+          manifest[file.relPath] = {
+            size: file.size,
+            mtime: file.mtime,
+            backupFolder: backupFolderRel // points to this backup folder inside device subfolder
+          };
+          filesCopied++;
+          bytesCopied += file.size;
+        } catch (copyErr) {
+          console.error(`Failed to copy file ${file.absPath}:`, copyErr.message);
+          warnings.push(`Error en archivo '${file.relPath}': ${copyErr.message}`);
+          
+          // If it was an incremental backup, reference the previous version so it's not lost
+          if (backupType === 'incremental' && fileInLastManifest) {
+            manifest[file.relPath] = {
+              size: fileInLastManifest.size,
+              mtime: fileInLastManifest.mtime,
+              backupFolder: fileInLastManifest.backupFolder
+            };
+          }
+        }
       } else {
         // Not changed: point to the folder of the previous backup that contains it
         manifest[file.relPath] = {
