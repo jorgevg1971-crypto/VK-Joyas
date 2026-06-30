@@ -18,6 +18,21 @@ function toLongPath(p) {
   return '\\\\?\\' + normalized;
 }
 
+function syncRunsLogToNas(config) {
+  try {
+    const deviceIdentifier = config.deviceIdentifier || require('os').hostname();
+    const localRunsPath = path.join(__dirname, 'data', 'runs.json');
+    if (fs.existsSync(localRunsPath)) {
+      const nasRunsPath = path.join(config.destination, deviceIdentifier, 'runs.json');
+      fs.mkdirSync(toLongPath(path.dirname(nasRunsPath)), { recursive: true });
+      fs.copyFileSync(localRunsPath, toLongPath(nasRunsPath));
+      console.log(`[Backup Engine] Synced runs.json to NAS: ${nasRunsPath}`);
+    }
+  } catch (err) {
+    console.error('[Backup Engine] Failed to sync runs.json to NAS:', err.message);
+  }
+}
+
 // In-memory status tracker for the UI
 let currentJobStatus = {
   status: 'idle', // 'idle', 'scanning', 'copying', 'cleaning', 'failed', 'success'
@@ -315,6 +330,16 @@ async function runBackup(requestedType = null) {
     // Save manifest file
     db.saveManifest(runId, manifest);
 
+    // Save manifest to NAS backup folder as well for self-containment & v1.1 fallback features
+    try {
+      const nasManifestPath = path.join(destinationFolder, 'manifest.json');
+      fs.writeFileSync(toLongPath(nasManifestPath), JSON.stringify(manifest, null, 2), 'utf8');
+      console.log(`[Backup Engine] Manifest saved to NAS: ${nasManifestPath}`);
+    } catch (nasManifestErr) {
+      console.error('[Backup Engine] Failed to save manifest to NAS:', nasManifestErr.message);
+      warnings.push(`No se pudo guardar manifest.json en el NAS: ${nasManifestErr.message}`);
+    }
+
     // 5. Update Run Log to Success
     const endTime = new Date().getTime();
     const duration = Math.round((endTime - new Date(timestamp).getTime()) / 1000); // in seconds
@@ -330,6 +355,7 @@ async function runBackup(requestedType = null) {
       warnings: warnings.length > 0 ? warnings : null
     };
     db.updateRun(runId, finalRunLog);
+    syncRunsLogToNas(config);
 
     currentJobStatus.status = 'success';
     currentJobStatus.progress.currentFile = 'Backup completado correctamente.';
@@ -357,6 +383,7 @@ async function runBackup(requestedType = null) {
       error: err.message,
       warnings: warnings.length > 0 ? warnings : null
     });
+    syncRunsLogToNas(config);
 
     currentJobStatus.status = 'failed';
     currentJobStatus.error = err.message;
@@ -451,42 +478,184 @@ function cancelBackup() {
   return false;
 }
 
-async function consolidateBackup(runId) {
+function extractHostFromUnc(uncPath) {
+  if (!uncPath || !uncPath.startsWith('\\\\')) return null;
+  const parts = uncPath.substring(2).split('\\');
+  return parts[0] || null;
+}
+
+function pingQnapAgent(host) {
+  return new Promise((resolve) => {
+    const http = require('http');
+    const options = {
+      hostname: host,
+      port: 8283,
+      path: '/api/health',
+      method: 'GET',
+      timeout: 1500
+    };
+
+    const req = http.request(options, (res) => {
+      resolve(res.statusCode === 200);
+    });
+
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(false);
+    });
+    req.end();
+  });
+}
+
+function triggerQnapConsolidation(host, payload) {
+  return new Promise((resolve, reject) => {
+    const http = require('http');
+    const dataStr = JSON.stringify(payload);
+    const options = {
+      hostname: host,
+      port: 8283,
+      path: '/api/consolidate',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(dataStr)
+      },
+      timeout: 600000 // 10 minutes timeout
+    };
+
+    const req = http.request(options, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => body += chunk);
+      res.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          if (res.statusCode === 200 && data.success) {
+            resolve(data);
+          } else {
+            reject(new Error(data.message || `Error del NAS agent (Código: ${res.statusCode})`));
+          }
+        } catch (e) {
+          reject(new Error(`Respuesta inválida del NAS agent: ${body}`));
+        }
+      });
+    });
+
+    req.on('error', (err) => reject(err));
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Tiempo de espera agotado al consolidar en el NAS.'));
+    });
+    req.write(dataStr);
+    req.end();
+  });
+}
+
+async function consolidateBackup(runId, overrideDeviceIdentifier = null, overrideFolderName = null) {
   const config = db.getConfig();
-  const runs = db.getRuns();
-  const run = runs.find(r => r.id === runId);
-  if (!run) {
-    throw new Error('No se encontró el registro de la copia de seguridad.');
+  
+  let deviceIdentifier = config.deviceIdentifier || require('os').hostname();
+  let folderName = '';
+  let manifest = null;
+
+  if (overrideDeviceIdentifier) {
+    deviceIdentifier = overrideDeviceIdentifier;
+    
+    // Connect to NAS if it's a UNC path
+    if (config.destination.startsWith('\\\\')) {
+      await nasConnector.connect(config.destination, config.nasUsername, config.nasPasswordDecrypted);
+    }
+    
+    if (!overrideFolderName) {
+      // Find the folder starting with backup_${runId} on the NAS
+      const devicePath = path.join(config.destination, overrideDeviceIdentifier);
+      const longDevicePath = toLongPath(devicePath);
+      if (fs.existsSync(longDevicePath)) {
+        const dirs = fs.readdirSync(longDevicePath);
+        const match = dirs.find(d => d.startsWith(`backup_${runId}`));
+        if (match) {
+          folderName = match;
+        } else {
+          throw new Error(`No se encontró ninguna carpeta de backup para el Run ID ${runId} en el NAS.`);
+        }
+      } else {
+        throw new Error(`No se encontró la carpeta del dispositivo ${overrideDeviceIdentifier} en el NAS.`);
+      }
+    } else {
+      folderName = overrideFolderName;
+    }
+    
+    // Load manifest directly from the NAS backup folder
+    const nasManifestPath = path.join(config.destination, deviceIdentifier, folderName, 'manifest.json');
+    if (!fs.existsSync(toLongPath(nasManifestPath))) {
+      throw new Error(`No se encontró el manifiesto manifest.json en el NAS en: ${nasManifestPath}`);
+    }
+    try {
+      manifest = JSON.parse(fs.readFileSync(toLongPath(nasManifestPath), 'utf8'));
+    } catch (err) {
+      throw new Error(`Error al leer el manifiesto del NAS: ${err.message}`);
+    }
+  } else {
+    // Local consolidation
+    const runs = db.getRuns();
+    const run = runs.find(r => r.id === runId);
+    if (!run) {
+      throw new Error('No se encontró el registro de la copia de seguridad.');
+    }
+    folderName = run.folderName || runId;
+    manifest = db.getManifest(runId);
+    if (!manifest) {
+      throw new Error('No se encontró el manifiesto para esta copia de seguridad.');
+    }
+    
+    // Connect to NAS if it's a UNC path
+    if (config.destination.startsWith('\\\\')) {
+      await nasConnector.connect(config.destination, config.nasUsername, config.nasPasswordDecrypted);
+    }
   }
 
-  const manifest = db.getManifest(runId);
-  if (!manifest) {
-    throw new Error('No se encontró el manifiesto para esta copia de seguridad.');
+  // Layer 1: Check if QNAP agent is online on the NAS and delegate
+  const nasHost = extractHostFromUnc(config.destination);
+  if (nasHost) {
+    console.log(`[Consolidation] Checking QNAP Agent on ${nasHost}:8283...`);
+    const isQnapOnline = await pingQnapAgent(nasHost);
+    if (isQnapOnline) {
+      console.log(`[Consolidation] QNAP Agent is online. Delegating consolidation...`);
+      try {
+        const result = await triggerQnapConsolidation(nasHost, {
+          deviceIdentifier,
+          folderName,
+          runId
+        });
+        console.log(`[Consolidation] QNAP Agent successfully consolidated backup!`);
+        return result;
+      } catch (qnapErr) {
+        console.error(`[Consolidation] QNAP Agent delegation failed, falling back to local PC:`, qnapErr.message);
+      }
+    } else {
+      console.log(`[Consolidation] QNAP Agent is offline or not installed. Proceeding with PC network consolidation...`);
+    }
   }
 
-  // 1. Connect to NAS if it's a UNC path
-  if (config.destination.startsWith('\\\\')) {
-    await nasConnector.connect(config.destination, config.nasUsername, config.nasPasswordDecrypted);
-  }
-
-  const deviceIdentifier = config.deviceIdentifier || require('os').hostname();
+  // Layer 2 / Layer 3 (Fallback): Perform consolidation locally on this PC over the network
   const tempFolderName = `consolidate_temp_${runId}`;
   const tempFolder = path.join(config.destination, deviceIdentifier, tempFolderName);
-  const zipName = `archive_${deviceIdentifier}_${run.folderName || runId}.zip`;
+  const zipName = `archive_${deviceIdentifier}_${folderName}.zip`;
   const zipPath = path.join(config.destination, deviceIdentifier, zipName);
 
-  console.log(`[Consolidation] Starting consolidation for run ${runId} into ${zipName}...`);
+  console.log(`[Consolidation] Starting local network consolidation for ${deviceIdentifier}/${folderName} into ${zipName}...`);
 
   try {
-    // 2. Clean up any existing temp folder
+    // Clean up any existing temp folder
     if (fs.existsSync(toLongPath(tempFolder))) {
       fs.rmSync(toLongPath(tempFolder), { recursive: true, force: true });
     }
 
-    // 3. Create temp folder
+    // Create temp folder
     fs.mkdirSync(toLongPath(tempFolder), { recursive: true });
 
-    // 4. Copy all files listed in the manifest
+    // Copy all files listed in the manifest
     const fileRelPaths = Object.keys(manifest);
     for (const relPath of fileRelPaths) {
       const fileMeta = manifest[relPath];
@@ -506,7 +675,7 @@ async function consolidateBackup(runId) {
 
     console.log(`[Consolidation] Reconstructed ${fileRelPaths.length} files. Compressing into ZIP...`);
 
-    // 5. Compress using tar.exe
+    // Compress using tar.exe
     const absTempFolder = path.resolve(tempFolder);
     const absZipPath = path.resolve(zipPath);
     
@@ -521,7 +690,7 @@ async function consolidateBackup(runId) {
     console.error(`[Consolidation] Failed to consolidate backup:`, err.message);
     throw err;
   } finally {
-    // 6. Always clean up the temp directory
+    // Always clean up the temp directory
     try {
       if (fs.existsSync(toLongPath(tempFolder))) {
         fs.rmSync(toLongPath(tempFolder), { recursive: true, force: true });

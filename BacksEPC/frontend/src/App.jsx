@@ -361,13 +361,13 @@ function App() {
         } else {
           setMachinesStatus(prev => ({
             ...prev,
-            [ip]: { loading: false, data: null, error: data.message || 'Error de conexión remota.' }
+            [ip]: { loading: false, data: prev[ip]?.data || null, error: data.message || 'Error de conexión remota.' }
           }));
         }
       } catch (err) {
         setMachinesStatus(prev => ({
           ...prev,
-          [ip]: { loading: false, data: null, error: 'Sin conexión a la red local.' }
+          [ip]: { loading: false, data: prev[ip]?.data || null, error: 'Sin conexión a la red local.' }
         }));
       }
     });
@@ -428,9 +428,13 @@ function App() {
   };
 
   const triggerRemoteConsolidate = async (ip, runId) => {
-    if (!window.confirm(`¿Estás seguro de que deseas consolidar y comprimir en ZIP el último backup de la máquina remota ${ip}? Esto se ejecutará en segundo plano en esa máquina.`)) {
+    const targetMachine = machinesStatus[ip];
+    const deviceId = targetMachine?.data?.deviceIdentifier || 'Desconectado';
+
+    if (!window.confirm(`¿Estás seguro de que deseas consolidar y comprimir en ZIP el backup de la máquina remota ${deviceId} (${ip})? Esto se ejecutará en segundo plano.`)) {
       return;
     }
+
     try {
       const res = await fetch('/api/network/proxy', {
         method: 'POST',
@@ -446,10 +450,41 @@ function App() {
         })
       });
       const data = await res.json();
+      
       if (res.ok && data.success) {
         alert(data.message);
       } else {
-        alert(`Error al consolidar remoto: ${data.message}`);
+        // If remote machine connection failed (offline/unreachable)
+        if (res.status === 502 || res.status === 504 || data.message?.includes('Sin conexión') || data.message?.includes('no respondió')) {
+          let targetDevId = deviceId;
+          
+          if (!targetDevId || targetDevId === 'Desconectado' || targetDevId === 'Cargando...') {
+            targetDevId = window.prompt("La máquina remota está apagada o fuera de la red. Escribe el Identificador de ese equipo (nombre de su carpeta en el NAS) para realizar la consolidación alternativa:");
+          } else {
+            const confirmFallback = window.confirm(`La máquina destino está fuera de línea. ¿Deseas realizar la consolidación de forma alternativa desde esta máquina administradora localmente usando la red?`);
+            if (!confirmFallback) return;
+          }
+
+          if (!targetDevId) return; // User cancelled or left empty
+
+          // Trigger fallback consolidation from this machine (Admin console PC A)
+          try {
+            const fallbackRes = await fetch('/api/network/consolidate-fallback', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                runId,
+                deviceIdentifier: targetDevId
+              })
+            });
+            const fallbackData = await fallbackRes.json();
+            alert(fallbackData.message);
+          } catch (fallbackErr) {
+            alert(`Error al iniciar consolidación alternativa: ${fallbackErr.message}`);
+          }
+        } else {
+          alert(`Error al consolidar remoto: ${data.message}`);
+        }
       }
     } catch (e) {
       alert(`Error al conectar con la máquina remota: ${e.message}`);
@@ -1861,7 +1896,25 @@ function App() {
                                   )}
                                 </div>
                               ) : error ? (
-                                <span style={{ fontSize: '0.8rem', color: 'var(--accent-red)' }}>{error}</span>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', alignItems: 'flex-start' }}>
+                                  <span style={{ fontSize: '0.8rem', color: 'var(--accent-red)', lineHeight: 1.2 }}>{error}</span>
+                                  <button 
+                                    type="button"
+                                    className="btn btn-secondary" 
+                                    style={{ 
+                                      padding: '0.25rem 0.5rem', 
+                                      fontSize: '0.7rem', 
+                                      fontWeight: 600,
+                                      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                      color: 'var(--accent-red)',
+                                      border: '1px solid rgba(239, 68, 68, 0.2)'
+                                    }}
+                                    onClick={() => triggerRemoteConsolidate(ip, 'latest')}
+                                    title="Consolidar el último backup disponible de esta PC directamente desde la PC administradora"
+                                  >
+                                    📦 Consolidar Offline
+                                  </button>
+                                </div>
                               ) : (
                                 <span style={{ color: 'var(--text-muted)' }}>-</span>
                               )}

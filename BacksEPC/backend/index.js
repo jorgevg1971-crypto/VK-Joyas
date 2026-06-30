@@ -497,6 +497,47 @@ app.post('/api/backup/consolidate', async (req, res) => {
   }
 });
 
+// 9b. Fallback consolidation (Admin console PC A executes consolidation of offline PC B)
+app.post('/api/network/consolidate-fallback', async (req, res) => {
+  let { runId, deviceIdentifier, folderName } = req.body;
+  if (!runId || !deviceIdentifier) {
+    return res.status(400).json({ success: false, message: 'Faltan parámetros requeridos: runId, deviceIdentifier.' });
+  }
+
+  const config = db.getConfig();
+
+  try {
+    // If runId is 'latest', look it up in the NAS runs.json file!
+    if (runId === 'latest') {
+      const nasRunsPath = path.join(config.destination, deviceIdentifier, 'runs.json');
+      const longRunsPath = toLongPath(nasRunsPath);
+      if (!fs.existsSync(longRunsPath)) {
+        return res.status(404).json({ success: false, message: `No se encontró el registro de copias de seguridad en el NAS para '${deviceIdentifier}'. La máquina debe haber completado al menos un backup exitoso versión 1.1.` });
+      }
+      const runs = JSON.parse(fs.readFileSync(longRunsPath, 'utf8'));
+      const successRuns = runs.filter(r => r.status === 'success');
+      if (successRuns.length === 0) {
+        return res.status(404).json({ success: false, message: `No se encontró ningún backup exitoso para '${deviceIdentifier}' en el NAS.` });
+      }
+      const lastRun = successRuns[successRuns.length - 1];
+      runId = lastRun.id;
+      folderName = lastRun.folderName || lastRun.id;
+    }
+
+    backupEngine.consolidateBackup(runId, deviceIdentifier, folderName)
+      .then(result => {
+        console.log(`[Consolidation Fallback] Successfully consolidated remote run ${runId} for ${deviceIdentifier}: ${result.zipName}`);
+      })
+      .catch(err => {
+        console.error(`[Consolidation Fallback] Background fallback consolidation failed for remote run ${runId}:`, err.message);
+      });
+
+    res.json({ success: true, message: `La consolidación alternativa ha iniciado en segundo plano. Esta computadora (Administradora) está reconstruyendo y comprimiendo el backup de '${deviceIdentifier}' directamente en el NAS.` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: `No se pudo iniciar la consolidación alternativa: ${err.message}` });
+  }
+});
+
 // --- ADMIN AUTHENTICATION MIDDLEWARE ---
 function checkAdminAuth(req, res, next) {
   const config = db.getConfig();
