@@ -23,6 +23,15 @@ if ($existingService) {
     
     Write-Host "Eliminando el registro del servicio..." -ForegroundColor Yellow
     & sc.exe delete $serviceName | Out-Null
+    
+    # Remove firewall rule if it exists
+    $ruleName = "ePC Backup API (Port 8282)"
+    $existingRule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
+    if ($existingRule) {
+        Write-Host "Eliminando regla del Firewall..." -ForegroundColor Yellow
+        Remove-NetFirewallRule -DisplayName $ruleName | Out-Null
+    }
+    
     Start-Sleep -Seconds 2
     
     Write-Host "==========================================================" -ForegroundColor Green

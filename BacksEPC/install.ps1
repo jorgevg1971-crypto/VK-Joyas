@@ -53,6 +53,23 @@ if ($?) {
     exit 1
 }
 
+# 3b. Configure Windows Firewall to allow incoming traffic on port 8282
+Write-Host "3b. Configurando el Firewall de Windows para el puerto 8282..." -ForegroundColor Cyan
+$ruleName = "ePC Backup API (Port 8282)"
+$existingRule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
+if (-not $existingRule) {
+    New-NetFirewallRule -DisplayName $ruleName `
+                        -Direction Inbound `
+                        -LocalPort 8282 `
+                        -Protocol TCP `
+                        -Action Allow `
+                        -Enabled True `
+                        -Description "Permite la conexion de la consola de red de backups en el puerto 8282." | Out-Null
+    Write-Host "Regla de firewall creada correctamente." -ForegroundColor Green
+} else {
+    Write-Host "La regla de firewall ya existe." -ForegroundColor Yellow
+}
+
 # 4. Start the service
 Write-Host "4. Iniciando el servicio..." -ForegroundColor Cyan
 Start-Service -Name $serviceName
