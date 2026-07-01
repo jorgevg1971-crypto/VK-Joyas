@@ -1766,7 +1766,7 @@ function App() {
                                   jobStatus === 'running' || jobStatus === 'scanning' || jobStatus === 'copying' || jobStatus === 'cleaning' ? 'badge-running' : 
                                   jobStatus === 'idle' ? 'badge-secondary' : 'badge-failed'
                                 }`}>
-                                  {jobStatus === 'idle' ? 'Listo (Listo)' :
+                                  {jobStatus === 'idle' ? 'Listo' :
                                    jobStatus === 'success' ? 'Completado' :
                                    jobStatus === 'scanning' ? 'Escaneando' :
                                    jobStatus === 'copying' ? 'Copiando' :
